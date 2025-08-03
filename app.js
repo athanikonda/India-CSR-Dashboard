@@ -724,7 +724,7 @@ class CSRDashboard {
         
         if (!copyrightDiv) {
             copyrightDiv = document.createElement('div');
-            copyrightDiv.setAttribute('class', 'chart-copyright';)
+            copyrightDiv.setAttribute('class', 'chart-copyright');
             copyrightDiv.textContent = 'Prepared by Ashok Thanikonda';
             chartContainer.appendChild(copyrightDiv);
         }
@@ -934,7 +934,7 @@ class CSRDashboard {
                 else if (stateData.spending > 1000) colorClass = 'spending-2';
                 else if (stateData.spending > 500) colorClass = 'spending-1';
                 
-                pathElement.setAttribute('class', `state-path ${colorClass}`;)
+                pathElement.setAttribute('class', `state-path ${colorClass}`);
             }
         });
     }
