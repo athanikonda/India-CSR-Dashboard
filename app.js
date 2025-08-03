@@ -724,7 +724,7 @@ class CSRDashboard {
         
         if (!copyrightDiv) {
             copyrightDiv = document.createElement('div');
-            copyrightDiv.setAttribute('class', 'chart-copyright';)
+            copyrightDiv.setAttribute('class', 'chart-copyright');
             copyrightDiv.textContent = 'Prepared by Ashok Thanikonda';
             chartContainer.appendChild(copyrightDiv);
         }
