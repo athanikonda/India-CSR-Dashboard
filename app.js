@@ -1,3 +1,4 @@
+
 // Ensure PapaParse is loaded (via CDN)
 if (typeof Papa === 'undefined') {
     const papaScript = document.createElement('script');
@@ -5,10 +6,11 @@ if (typeof Papa === 'undefined') {
     document.head.appendChild(papaScript);
 }
 
-// CSRDashboard class and methods
 function CSRDashboard() {
     this.data = [];
     this.filteredData = [];
+    this.currentPage = 1;
+    this.pageSize = 100; // Show 100 items per page
     this.init();
 }
 
@@ -28,7 +30,6 @@ CSRDashboard.prototype.init = async function () {
     }
 };
 
-// *** Updated loadFullDataset function with detailed debugging ***
 CSRDashboard.prototype.loadFullDataset = async function () {
     console.log("DEBUG: loadFullDataset started");
 
@@ -38,7 +39,6 @@ CSRDashboard.prototype.loadFullDataset = async function () {
     }
 
     try {
-        // Fetch raw CSV text
         console.log("DEBUG: Fetching CSV from /api/fetch-sheet");
         const response = await fetch("/api/fetch-sheet");
         if (!response.ok) {
@@ -47,7 +47,6 @@ CSRDashboard.prototype.loadFullDataset = async function () {
         const csvText = await response.text();
         console.log("DEBUG: CSV text length:", csvText.length);
 
-        // Parse with PapaParse
         return new Promise((resolve, reject) => {
             Papa.parse(csvText, {
                 header: true,
@@ -86,26 +85,85 @@ CSRDashboard.prototype.loadFullDataset = async function () {
 };
 
 CSRDashboard.prototype.loadFallbackData = function () {
-    // Your existing fallback data loader
     console.log("Generated 26984 companies");
     console.log("Total spending: ₹116919.05 Cr");
     console.log("Total projects: 178216");
-    // existing fallback data logic...
+    // fallback data logic...
 };
 
 CSRDashboard.prototype.renderDashboard = function () {
-    // Your existing dashboard rendering logic
+    // Update summary cards/charts (existing logic)
+    this.applyFilters();
+    this.renderCompanyList();
+    this.renderPaginationControls();
 };
 
 CSRDashboard.prototype.applyFilters = function () {
-    // Your existing filter logic
+    // Apply existing filter logic to update this.filteredData
+    // For now, no filtering logic added
+    this.filteredData = this.data; 
 };
 
-CSRDashboard.prototype.updateMap = function () {
-    // Your existing map logic
+CSRDashboard.prototype.renderCompanyList = function () {
+    const startIndex = (this.currentPage - 1) * this.pageSize;
+    const endIndex = startIndex + this.pageSize;
+    const currentPageData = this.filteredData.slice(startIndex, endIndex);
+
+    const companyListContainer = document.getElementById("company-list");
+    if (!companyListContainer) return;
+
+    companyListContainer.innerHTML = "";
+
+    currentPageData.forEach((company) => {
+        const div = document.createElement("div");
+        div.classList.add("company-entry");
+        div.innerHTML = `
+            <strong>${company["Company Name"]}</strong> - 
+            ${company["CSR State"] || "Unknown"} - 
+            ₹${company["Project Amount Spent (In INR Cr.)"] || 0}
+        `;
+        companyListContainer.appendChild(div);
+    });
 };
 
-// Initialize dashboard
+CSRDashboard.prototype.renderPaginationControls = function () {
+    const paginationContainer = document.getElementById("pagination-controls");
+    if (!paginationContainer) return;
+
+    paginationContainer.innerHTML = "";
+
+    const totalPages = Math.ceil(this.filteredData.length / this.pageSize);
+
+    // Prev Button
+    const prevBtn = document.createElement("button");
+    prevBtn.textContent = "◀";
+    prevBtn.disabled = this.currentPage === 1;
+    prevBtn.addEventListener("click", () => {
+        this.currentPage--;
+        this.renderCompanyList();
+        this.renderPaginationControls();
+    });
+    paginationContainer.appendChild(prevBtn);
+
+    // Page Indicator
+    const pageIndicator = document.createElement("span");
+    pageIndicator.textContent = `Page ${this.currentPage} of ${totalPages}`;
+    pageIndicator.style.margin = "0 10px";
+    paginationContainer.appendChild(pageIndicator);
+
+    // Next Button
+    const nextBtn = document.createElement("button");
+    nextBtn.textContent = "▶";
+    nextBtn.disabled = this.currentPage === totalPages;
+    nextBtn.addEventListener("click", () => {
+        this.currentPage++;
+        this.renderCompanyList();
+        this.renderPaginationControls();
+    });
+    paginationContainer.appendChild(nextBtn);
+};
+
+// Initialize
 document.addEventListener("DOMContentLoaded", function () {
     new CSRDashboard();
 });
