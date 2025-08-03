@@ -165,33 +165,46 @@ class CSRDashboard {
         }
     }
 
-    async loadFullDataset() {
-        try {
-            console.log('Loading complete CSV dataset...');
-            const response = await fetch(this.csvUrl);
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
-            const csvText = await response.text();
-            this.rawData = this.parseCSV(csvText);
-            
-            console.log(`Loaded ${this.rawData.length} records from CSV`);
-            
-            if (this.rawData.length < 10000) {
-                console.warn(`Warning: Expected large dataset but got ${this.rawData.length}. Using fallback data.`);
-                throw new Error('Dataset too small');
-            }
-            
-            // Process the data
-            this.processData();
-            
-        } catch (error) {
-            console.error('Error loading CSV data:', error);
-            throw error;
-        }
+ CSRDashboard.prototype.loadFullDataset = async function () {
+    console.log("DEBUG: loadFullDataset started");
+    if (typeof Papa === "undefined") {
+        console.error("DEBUG: PapaParse is NOT loaded!");
+        throw new Error("PapaParse not loaded");
     }
+
+    try {
+        const response = await fetch("/api/fetch-sheet");
+        if (!response.ok) throw new Error(`Failed to fetch CSV: ${response.status}`);
+
+        const csvText = await response.text();
+        console.log("DEBUG: CSV text length:", csvText.length);
+
+        return new Promise((resolve, reject) => {
+            Papa.parse(csvText, {
+                header: true,
+                skipEmptyLines: true,
+                dynamicTyping: true,
+                complete: (results) => {
+                    console.log("DEBUG: PapaParse complete");
+                    console.log("DEBUG: Rows parsed:", results.data.length);
+                    console.log("DEBUG: Errors encountered:", results.errors.length);
+                    if (results.data.length < 10) {
+                        reject(new Error("Dataset too small"));
+                    } else {
+                        resolve(results.data);
+                    }
+                },
+                error: (err) => {
+                    console.error("DEBUG: PapaParse error", err);
+                    reject(err);
+                }
+            });
+        });
+    } catch (error) {
+        console.error("DEBUG: loadFullDataset error:", error);
+        throw error;
+    }
+};
 
     parseCSV(csvText) {
         const lines = csvText.split('\n');
