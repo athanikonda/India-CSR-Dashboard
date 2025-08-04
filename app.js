@@ -23,13 +23,29 @@ async function loadFullDataset() {
 
   console.log("DEBUG: CSV text length:", csvText.length);
 
-  const parsed = Papa.parse(csvText, {
-    header: true,
-    skipEmptyLines: true,
-    worker: true, // For smoother UI with large files
-    dynamicTyping: false,
+  return new Promise((resolve, reject) => {
+    Papa.parse(csvText, {
+      header: true,
+      skipEmptyLines: true,
+      worker: true,
+      dynamicTyping: false,
+      complete: function (parsed) {
+        console.log("DEBUG: PapaParse complete");
+        console.log("DEBUG: Rows parsed:", parsed.data.length);
+        console.log("DEBUG: Errors encountered:", parsed.errors.length);
+        console.log("DEBUG: First row sample:", parsed.data[0]);
+        rawData = parsed.data;
+        filteredData = [...rawData];
+        console.log("Dataset loaded:", filteredData.length, "records");
+        resolve();
+      },
+      error: function (err) {
+        console.error("PapaParse error:", err);
+        reject(err);
+      }
+    });
   });
-
+}
   console.log("DEBUG: PapaParse complete");
   console.log("DEBUG: Rows parsed:", parsed.data.length);
   console.log("DEBUG: Errors encountered:", parsed.errors.length);
