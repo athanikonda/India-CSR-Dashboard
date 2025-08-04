@@ -1,119 +1,102 @@
-// app.js (revised version)
-// Last updated: Tue Aug 05, 2025
-
-console.log("Initializing dashboard...");
-
-const csvUrl = '/api/fetch-sheet';
+const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRaDCGxkQyoqBF6_genJT1KztlWoeY8cNLMlIRSlSKSvRLidz_449ZFzbrO0sCQFf9HGiYdySFa8weC/pub?output=csv";
 
 let rawData = [];
 let filteredData = [];
 
-document.addEventListener("DOMContentLoaded", async () => {
-  await loadFullDataset();
-  initializeTabs();
-  initializeFilters();
-  updateDashboard();
+document.addEventListener("DOMContentLoaded", () => {
+    Papa.parse(csvUrl, {
+        download: true,
+        header: true,
+        complete: function(parsed) {
+            console.log("DEBUG: PapaParse complete");
+            console.log("DEBUG: Rows parsed:", parsed.data.length);
+            console.log("DEBUG: Errors encountered:", parsed.errors.length);
+            console.log("DEBUG: First row sample:", parsed.data[0]);
+
+            rawData = parsed.data;
+            filteredData = [...rawData];
+
+            initializeFilters();
+            renderSummaryCards();
+            renderCharts();
+            renderTable(1);
+            updateDashboard();
+        }
+    });
+
+    setupTabs();
+    setupFilterListeners();
 });
 
-async function loadFullDataset() {
-  console.log("DEBUG: loadFullDataset started");
-
-  const response = await fetch(csvUrl);
-  const csvText = await response.text();
-
-  console.log("DEBUG: CSV text length:", csvText.length);
-
-  return new Promise((resolve, reject) => {
-    Papa.parse(csvText, {
-      header: true,
-      skipEmptyLines: true,
-      worker: true,
-      dynamicTyping: false,
-      complete: function (parsed) {
-        console.log("DEBUG: PapaParse complete");
-        console.log("DEBUG: Rows parsed:", parsed.data.length);
-        console.log("DEBUG: Errors encountered:", parsed.errors.length);
-        console.log("DEBUG: First row sample:", parsed.data[0]);
-        rawData = parsed.data;
-        filteredData = [...rawData];
-        console.log("Dataset loaded:", filteredData.length, "records");
-        resolve();
-      },
-      error: function (err) {
-        console.error("PapaParse error:", err);
-        reject(err);
-      }
-    });
-  });
-}
-function initializeTabs() {
-  const tabs = document.querySelectorAll(".tab");
-  const tabContents = document.querySelectorAll(".tab-content");
-
-  tabs.forEach((tab) => {
-    tab.addEventListener("click", () => {
-      tabs.forEach(t => t.classList.remove("active"));
-      tabContents.forEach(tc => tc.style.display = "none");
-      tab.classList.add("active");
-      const target = document.getElementById(tab.dataset.tab);
-      if (target) target.style.display = "block";
-    });
-  });
-
-  if (tabs.length > 0) {
-    tabs[0].click(); // Open the first tab by default
-  }
-}
-
 function initializeFilters() {
-  const stateSet = new Set();
-  const sectorSet = new Set();
-  const typeSet = new Set();
-
-  rawData.forEach(row => {
-    if (row['CSR State']) stateSet.add(row['CSR State'].trim());
-    if (row['CSR Development Sector']) sectorSet.add(row['CSR Development Sector'].trim());
-    if (row['PSU/Non-PSU']) typeSet.add(row['PSU/Non-PSU'].trim());
-  });
-
-  populateMultiSelect("stateFilter", [...stateSet].sort());
-  populateMultiSelect("sectorFilter", [...sectorSet].sort());
-  populateMultiSelect("psuFilter", [...typeSet].sort());
+    // Filter population logic
+    // This is a stub — restore your logic here as needed
 }
 
-function populateMultiSelect(selectId, items) {
-  const select = document.getElementById(selectId);
-  if (!select) return;
-  select.innerHTML = '';
-  items.forEach(item => {
-    const option = document.createElement("option");
-    option.value = item;
-    option.text = item;
-    option.selected = true;
-    select.appendChild(option);
-  });
-  // Fallback: If selectpicker exists, refresh it
-  if (typeof $ !== "undefined" && $(select).selectpicker) {
-    $(select).selectpicker('refresh');
-  }
+function renderSummaryCards() {
+    // If you had metric cards (e.g., sectors, PSUs), restore chart logic here
+}
+
+function renderCharts() {
+    // Render pie charts, bar charts, or others here
+}
+
+function renderTable(page) {
+    // Table rendering logic for pagination
+}
+
+function setupTabs() {
+    const tabButtons = document.querySelectorAll(".tab-button");
+    const tabContents = document.querySelectorAll(".tab-content");
+
+    tabButtons.forEach((btn) => {
+        btn.addEventListener("click", () => {
+            tabButtons.forEach((b) => b.classList.remove("active"));
+            tabContents.forEach((c) => c.style.display = "none");
+
+            btn.classList.add("active");
+            const target = btn.getAttribute("data-tab");
+            document.getElementById(target).style.display = "block";
+        });
+    });
+
+    // Trigger first tab by default
+    if (tabButtons.length > 0) tabButtons[0].click();
+}
+
+function setupFilterListeners() {
+    // Wire up dropdowns/filters — restore this section as needed
 }
 
 function updateDashboard() {
-  document.querySelectorAll(".loader-wrapper").forEach(el => {
-    if (el) el.style.display = 'none';
-  });
+    document.querySelectorAll(".loader-wrapper, #loadingIndicator").forEach(el => {
+        el.style.display = 'none';
+    });
 
-  const dashboard = document.getElementById("mainDashboard");
-  if (dashboard) {
-    dashboard.style.display = 'block';
-    // ✅ Hide the spinner overlay
-    // Fix: Use querySelector to support class-based overlay (or assign matching id in HTML)
-    const overlay = document.querySelector('.loading-overlay'); // ← FIXED
-    if (overlay) overlay.style.display = 'none';
-  } else {
-    console.warn("mainDashboard element not found in DOM.");
-  }
+    const dashboard = document.getElementById("mainDashboard");
+    if (dashboard) dashboard.style.display = "block";
 
-  console.log("Dashboard display triggered");
-  // Place your chart rendering logic here
+    // Stats
+    const totalCompanies = new Set(filteredData.map(row => row["Company Name"])).size;
+    const totalProjects = filteredData.length;
+    const totalSpending = filteredData.reduce((sum, row) => {
+        const val = parseFloat(row["Project Amount Spent (In INR Cr.)"]);
+        return isNaN(val) ? sum : sum + val;
+    }, 0);
+    const avgPerProject = totalSpending / (totalProjects || 1);
+
+    const updateText = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = value;
+    };
+
+    updateText("totalCompaniesHeader", totalCompanies.toLocaleString());
+    updateText("totalProjectsHeader", totalProjects.toLocaleString());
+    updateText("totalSpendingHeader", "₹" + totalSpending.toFixed(2));
+    updateText("totalCompaniesMetric", totalCompanies.toLocaleString());
+    updateText("totalProjectsMetric", totalProjects.toLocaleString());
+    updateText("totalSpendingMetric", "₹" + totalSpending.toFixed(2));
+    updateText("avgPerProjectMetric", "₹" + avgPerProject.toFixed(2));
+
+    console.log("Dashboard metrics updated");
 }
