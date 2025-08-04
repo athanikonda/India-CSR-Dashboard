@@ -29,8 +29,45 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 function initializeFilters() {
-    // Filter population logic
-    // This is a stub — restore your logic here as needed
+    // Unique States
+    const states = [...new Set(rawData.map(row => row["CSR State"]).filter(Boolean))].sort();
+    const stateSelect = document.getElementById("stateFilter");
+    if (stateSelect) {
+        stateSelect.innerHTML = "";
+        states.forEach(state => {
+            const opt = document.createElement("option");
+            opt.value = state;
+            opt.textContent = state;
+            stateSelect.appendChild(opt);
+        });
+    }
+
+    // Unique Sectors
+    const sectors = [...new Set(rawData.map(row => row["CSR Development Sector"]).filter(Boolean))].sort();
+    const sectorSelect = document.getElementById("sectorFilter");
+    if (sectorSelect) {
+        sectorSelect.innerHTML = "";
+        sectors.forEach(sector => {
+            const opt = document.createElement("option");
+            opt.value = sector;
+            opt.textContent = sector;
+            sectorSelect.appendChild(opt);
+        });
+    }
+
+    // PSU Type (static)
+    const psuSelect = document.getElementById("psuFilter");
+    if (psuSelect) {
+        psuSelect.innerHTML = "";
+        ["PSU", "Non-PSU"].forEach(type => {
+            const opt = document.createElement("option");
+            opt.value = type;
+            opt.textContent = type;
+            psuSelect.appendChild(opt);
+        });
+    }
+
+    console.log("Filters initialized");
 }
 
 function renderSummaryCards() {
