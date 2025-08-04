@@ -98,6 +98,9 @@ function updateDashboard() {
     const dashboard = document.getElementById("mainDashboard");
     if (dashboard) {
         dashboard.style.display = 'block';
+        // ✅ Hide the spinner overlay
+        const overlay = document.getElementById('loadingOverlay');
+        if (overlay) overlay.style.display = 'none';
     } else {
         console.warn("mainDashboard element not found in DOM.");
     }
