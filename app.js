@@ -46,17 +46,6 @@ async function loadFullDataset() {
     });
   });
 }
-  console.log("DEBUG: PapaParse complete");
-  console.log("DEBUG: Rows parsed:", parsed.data.length);
-  console.log("DEBUG: Errors encountered:", parsed.errors.length);
-  console.log("DEBUG: First row sample:", parsed.data[0]);
-
-  rawData = parsed.data;
-  filteredData = [...rawData];
-
-  console.log("Dataset loaded:", filteredData.length, "records");
-}
-
 function initializeTabs() {
   const tabs = document.querySelectorAll(".tab");
   const tabContents = document.querySelectorAll(".tab-content");
