@@ -1,169 +1,97 @@
+console.log("Initializing dashboard...");
 
-// Ensure PapaParse is loaded (via CDN)
-if (typeof Papa === 'undefined') {
-    const papaScript = document.createElement('script');
-    papaScript.src = "https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js";
-    document.head.appendChild(papaScript);
-}
+const csvUrl = '/api/fetch-sheet';
 
-function CSRDashboard() {
-    this.data = [];
-    this.filteredData = [];
-    this.currentPage = 1;
-    this.pageSize = 100; // Show 100 items per page
-    this.init();
-}
+let rawData = [];
+let filteredData = [];
 
-CSRDashboard.prototype.init = async function () {
-    console.log("Initializing dashboard...");
-    try {
-        const data = await this.loadFullDataset();
-        this.data = data;
-        this.filteredData = data;
-        console.log("Dataset loaded:", data.length, "records");
-        this.renderDashboard();
-    } catch (error) {
-        console.error("Error initializing dashboard:", error);
-        console.log("Loading fallback data due to CSV loading error...");
-        this.loadFallbackData();
-        this.renderDashboard();
-    }
-};
+document.addEventListener("DOMContentLoaded", async () => {
+    await loadFullDataset();
+    initializeTabs();
+    initializeFilters();
+    updateDashboard();
+});
 
-CSRDashboard.prototype.loadFullDataset = async function () {
+async function loadFullDataset() {
     console.log("DEBUG: loadFullDataset started");
 
-    if (typeof Papa === "undefined") {
-        console.error("DEBUG: PapaParse is NOT loaded!");
-        throw new Error("PapaParse not loaded");
-    }
+    const response = await fetch(csvUrl);
+    const csvText = await response.text();
 
-    try {
-        console.log("DEBUG: Fetching CSV from /api/fetch-sheet");
-        const response = await fetch("/api/fetch-sheet");
-        if (!response.ok) {
-            throw new Error(`Failed to fetch CSV: ${response.status}`);
-        }
-        const csvText = await response.text();
-        console.log("DEBUG: CSV text length:", csvText.length);
+    console.log("DEBUG: CSV text length:", csvText.length);
 
-        return new Promise((resolve, reject) => {
-            Papa.parse(csvText, {
-                header: true,
-                skipEmptyLines: true,
-                dynamicTyping: true,
-                complete: (results) => {
-                    console.log("DEBUG: PapaParse complete");
-                    console.log("DEBUG: Rows parsed:", results.data.length);
-                    console.log("DEBUG: Errors encountered:", results.errors.length);
+    const parsed = Papa.parse(csvText, {
+        header: true,
+        skipEmptyLines: true,
+    });
 
-                    if (results.errors.length > 0) {
-                        console.warn("DEBUG: PapaParse errors (first 5):", results.errors.slice(0, 5));
-                    }
+    console.log("DEBUG: PapaParse complete");
+    console.log("DEBUG: Rows parsed:", parsed.data.length);
+    console.log("DEBUG: Errors encountered:", parsed.errors.length);
+    console.log("DEBUG: First row sample:", parsed.data[0]);
 
-                    if (results.data.length > 0) {
-                        console.log("DEBUG: First row sample:", results.data[0]);
-                    }
+    rawData = parsed.data;
+    filteredData = [...rawData];
 
-                    if (results.data.length < 10) {
-                        console.error("DEBUG: Dataset too small after parsing!");
-                        reject(new Error("Dataset too small"));
-                    } else {
-                        resolve(results.data);
-                    }
-                },
-                error: (err) => {
-                    console.error("DEBUG: PapaParse error:", err);
-                    reject(err);
-                }
-            });
+    console.log("Dataset loaded:", filteredData.length, "records");
+}
+
+function initializeTabs() {
+    const tabs = document.querySelectorAll(".tab");
+    const tabContents = document.querySelectorAll(".tab-content");
+
+    tabs.forEach((tab) => {
+        tab.addEventListener("click", () => {
+            tabs.forEach(t => t.classList.remove("active"));
+            tabContents.forEach(tc => tc.style.display = "none");
+
+            tab.classList.add("active");
+            document.getElementById(tab.dataset.tab).style.display = "block";
         });
-    } catch (error) {
-        console.error("DEBUG: loadFullDataset error:", error);
-        throw error;
+    });
+
+    if (tabs.length > 0) {
+        tabs[0].click(); // Open the first tab by default
     }
-};
+}
 
-CSRDashboard.prototype.loadFallbackData = function () {
-    console.log("Generated 26984 companies");
-    console.log("Total spending: ₹116919.05 Cr");
-    console.log("Total projects: 178216");
-    // fallback data logic...
-};
+function initializeFilters() {
+    const stateSet = new Set();
+    const sectorSet = new Set();
+    const typeSet = new Set();
 
-CSRDashboard.prototype.renderDashboard = function () {
-    // Update summary cards/charts (existing logic)
-    this.applyFilters();
-    this.renderCompanyList();
-    this.renderPaginationControls();
-};
-
-CSRDashboard.prototype.applyFilters = function () {
-    // Apply existing filter logic to update this.filteredData
-    // For now, no filtering logic added
-    this.filteredData = this.data; 
-};
-
-CSRDashboard.prototype.renderCompanyList = function () {
-    const startIndex = (this.currentPage - 1) * this.pageSize;
-    const endIndex = startIndex + this.pageSize;
-    const currentPageData = this.filteredData.slice(startIndex, endIndex);
-
-    const companyListContainer = document.getElementById("company-list");
-    if (!companyListContainer) return;
-
-    companyListContainer.innerHTML = "";
-
-    currentPageData.forEach((company) => {
-        const div = document.createElement("div");
-        div.classList.add("company-entry");
-        div.innerHTML = `
-            <strong>${company["Company Name"]}</strong> - 
-            ${company["CSR State"] || "Unknown"} - 
-            ₹${company["Project Amount Spent (In INR Cr.)"] || 0}
-        `;
-        companyListContainer.appendChild(div);
+    rawData.forEach(row => {
+        if (row['CSR State']) stateSet.add(row['CSR State'].trim());
+        if (row['CSR Development Sector']) sectorSet.add(row['CSR Development Sector'].trim());
+        if (row['PSU/Non-PSU']) typeSet.add(row['PSU/Non-PSU'].trim());
     });
-};
 
-CSRDashboard.prototype.renderPaginationControls = function () {
-    const paginationContainer = document.getElementById("pagination-controls");
-    if (!paginationContainer) return;
+    populateMultiSelect("stateFilter", [...stateSet].sort());
+    populateMultiSelect("sectorFilter", [...sectorSet].sort());
+    populateMultiSelect("psuFilter", [...typeSet].sort());
+}
 
-    paginationContainer.innerHTML = "";
+function populateMultiSelect(selectId, items) {
+    const select = document.getElementById(selectId);
+    if (!select) return;
 
-    const totalPages = Math.ceil(this.filteredData.length / this.pageSize);
-
-    // Prev Button
-    const prevBtn = document.createElement("button");
-    prevBtn.textContent = "◀";
-    prevBtn.disabled = this.currentPage === 1;
-    prevBtn.addEventListener("click", () => {
-        this.currentPage--;
-        this.renderCompanyList();
-        this.renderPaginationControls();
+    select.innerHTML = '';
+    items.forEach(item => {
+        const option = document.createElement("option");
+        option.value = item;
+        option.text = item;
+        option.selected = true;
+        select.appendChild(option);
     });
-    paginationContainer.appendChild(prevBtn);
 
-    // Page Indicator
-    const pageIndicator = document.createElement("span");
-    pageIndicator.textContent = `Page ${this.currentPage} of ${totalPages}`;
-    pageIndicator.style.margin = "0 10px";
-    paginationContainer.appendChild(pageIndicator);
+    $(select).selectpicker('refresh');
+}
 
-    // Next Button
-    const nextBtn = document.createElement("button");
-    nextBtn.textContent = "▶";
-    nextBtn.disabled = this.currentPage === totalPages;
-    nextBtn.addEventListener("click", () => {
-        this.currentPage++;
-        this.renderCompanyList();
-        this.renderPaginationControls();
-    });
-    paginationContainer.appendChild(nextBtn);
-};
+function updateDashboard() {
+    // You can plug in your real logic here — this is a placeholder for now
+    document.querySelectorAll(".loader-wrapper").forEach(el => el.style.display = 'none');
+    document.getElementById("mainDashboard").style.display = 'block';
 
-// Initialize
-document.addEventListener("DOMContentLoaded", function () {
-    new CSRDashboard();
-});
+    console.log("Dashboard display triggered");
+    // Call your charting and summary functions here
+}
