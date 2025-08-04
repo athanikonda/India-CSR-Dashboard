@@ -1,0 +1,7 @@
+{
+  "name": "csr-dashboard",
+  "version": "1.0.0",
+  "dependencies": {
+    "papaparse": "^5.4.1"
+  }
+}
