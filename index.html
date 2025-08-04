@@ -350,23 +350,5 @@
 <script src="app.js"></script>
 <div id="company-list"></div>
 <div id="pagination-controls"></div>
-<script>
-    document.addEventListener("DOMContentLoaded", function () {
-        const loading = document.getElementById("loadingIndicator");
-        if (loading) loading.style.display = "none";
-
-        const dashboard = document.getElementById("mainDashboard");
-        if (dashboard) dashboard.style.display = "block";
-
-        // ✅ Trigger the CSV load and dashboard build
-        if (typeof loadFullDataset === "function") {
-            console.log("Calling loadFullDataset()...");
-            loadFullDataset();
-        } else {
-            console.error("loadFullDataset is not defined.");
-        }
-    });
-</script>
-
 </body>
 </html>
