@@ -350,5 +350,15 @@
 <script src="app.js"></script>
 <div id="company-list"></div>
 <div id="pagination-controls"></div>
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const loading = document.getElementById("loadingIndicator");
+        if (loading) loading.style.display = "none";
+
+        const dashboard = document.getElementById("mainDashboard");
+        if (dashboard) dashboard.style.display = "block";
+    });
+</script>
+
 </body>
 </html>
