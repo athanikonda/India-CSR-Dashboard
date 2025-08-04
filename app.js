@@ -99,21 +99,31 @@ function populateMultiSelect(selectId, items) {
 }
 
 function updateDashboard() {
-  document.querySelectorAll(".loader-wrapper").forEach(el => {
-    if (el) el.style.display = 'none';
-  });
+    document.querySelectorAll(".loader-wrapper, #loadingIndicator").forEach(el => {
+        el.style.display = 'none';
+    });
 
-  const dashboard = document.getElementById("mainDashboard");
-  if (dashboard) {
-    dashboard.style.display = 'block';
-    // ✅ Hide the spinner overlay
-    // Fix: Use querySelector to support class-based overlay (or assign matching id in HTML)
-    const overlay = document.querySelector('.loading-overlay'); // ← FIXED
-    if (overlay) overlay.style.display = 'none';
-  } else {
-    console.warn("mainDashboard element not found in DOM.");
-  }
+    const dashboard = document.getElementById("mainDashboard");
+    if (dashboard) dashboard.style.display = "block";
 
-  console.log("Dashboard display triggered");
-  // Place your chart rendering logic here
+    console.log("Dashboard display triggered");
+
+    // Calculate stats
+    const totalCompanies = new Set(filteredData.map(row => row["Company Name"])).size;
+    const totalProjects = filteredData.length;
+    const totalSpending = filteredData.reduce((sum, row) => sum + parseFloat(row["Project Amount Spent (In INR Cr.)"] || 0), 0);
+    const avgPerProject = totalSpending / (totalProjects || 1);
+
+    // Update top header stats
+    document.getElementById("totalCompaniesHeader").textContent = totalCompanies.toLocaleString();
+    document.getElementById("totalProjectsHeader").textContent = totalProjects.toLocaleString();
+    document.getElementById("totalSpendingHeader").textContent = "₹" + totalSpending.toFixed(2);
+
+    // Update overview metric cards
+    document.getElementById("totalCompaniesMetric").textContent = totalCompanies.toLocaleString();
+    document.getElementById("totalProjectsMetric").textContent = totalProjects.toLocaleString();
+    document.getElementById("totalSpendingMetric").textContent = "₹" + totalSpending.toFixed(2);
+    document.getElementById("avgPerProjectMetric").textContent = "₹" + avgPerProject.toFixed(2);
+
+    console.log("Dashboard metrics updated");
 }
