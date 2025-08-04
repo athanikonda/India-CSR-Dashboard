@@ -1,17 +1,15 @@
-
 const Papa = require("papaparse");
 
-export default async function handler(req, res) {
+module.exports = async function (req, res) {
   const url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRaDCGxkQyoqBF6_genJT1KztlWoeY8cNLMlIRSlSKSvRLidz_449ZFzbrO0sCQFf9HGiYdySFa8weC/pub?output=csv";
 
   try {
-    const { state, sector, psu, search, page = 1, pageSize = 100 } = req.query;
-
     const response = await fetch(url);
     if (!response.ok) throw new Error("Failed to fetch CSV");
     const csvText = await response.text();
-
     const results = Papa.parse(csvText, { header: true, skipEmptyLines: true });
+
+    const { state, sector, psu, search, page = 1, pageSize = 100 } = req.query;
     let rows = results.data;
 
     rows = rows.filter((row) => {
@@ -47,11 +45,9 @@ export default async function handler(req, res) {
         byState: Object.entries(charts.byState).map(([state, amount]) => ({ state, amount })),
         bySector: Object.entries(charts.bySector).map(([sector, amount]) => ({ sector, amount }))
       },
-      data: paginatedData,
-      totalPages: Math.ceil(rows.length / pageSize)
+      data: paginatedData
     });
-  } catch (error) {
-    console.error("Server error:", error);
-    res.status(500).json({ error: "Failed to process request", details: error.message });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
-}
+};
