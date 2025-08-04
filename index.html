@@ -1,0 +1,59 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Corporate Social Responsibility Dashboard</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <header class="main-header">
+    <h1>Corporate Social Responsibility Dashboard</h1>
+    <h3>FY 2023-24 • Complete Live Dataset</h3>
+  </header>
+
+  <section id="filters" class="filters-container">
+    <select id="filter-state"><option value="">All States</option></select>
+    <select id="filter-sector"><option value="">All Sectors</option></select>
+    <select id="filter-psu">
+      <option value="">PSU & Non-PSU</option>
+      <option value="PSU">PSU</option>
+      <option value="Non-PSU">Non-PSU</option>
+    </select>
+    <input type="text" id="filter-search" placeholder="Search company..." />
+    <button id="filter-reset">Reset Filters</button>
+  </section>
+
+  <section id="totals" class="totals-container">
+    <div class="totals-card">Total Companies: <span id="total-companies">0</span></div>
+    <div class="totals-card">Total Projects: <span id="total-projects">0</span></div>
+    <div class="totals-card">Total CSR Spending: <span id="total-spending">₹0 Cr</span></div>
+  </section>
+
+  <section id="company-list-section" class="list-container">
+    <h2>Company List</h2>
+    <div id="company-list" class="company-list"></div>
+    <div id="pagination-controls" class="pagination-controls"></div>
+  </section>
+
+  <section id="charts-section" class="charts-container">
+    <div class="chart-card">
+      <h3>CSR Spending by State</h3>
+      <canvas id="chart-by-state"></canvas>
+    </div>
+    <div class="chart-card">
+      <h3>CSR Spending by Sector</h3>
+      <canvas id="chart-by-sector"></canvas>
+    </div>
+  </section>
+
+  <footer class="main-footer">
+    <p>&copy; CSR Dashboard</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
