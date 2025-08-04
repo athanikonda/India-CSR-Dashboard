@@ -84,14 +84,16 @@ function populateMultiSelect(selectId, items) {
         select.appendChild(option);
     });
 
-    $(select).selectpicker('refresh');
+    // Fallback: If selectpicker exists, refresh it
+    if (typeof $ !== "undefined" && $(select).selectpicker) {
+        $(select).selectpicker('refresh');
+    }
 }
 
 function updateDashboard() {
-    // You can plug in your real logic here — this is a placeholder for now
     document.querySelectorAll(".loader-wrapper").forEach(el => el.style.display = 'none');
     document.getElementById("mainDashboard").style.display = 'block';
 
     console.log("Dashboard display triggered");
-    // Call your charting and summary functions here
+    // Add chart and rendering functions here
 }
