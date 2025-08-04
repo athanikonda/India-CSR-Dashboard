@@ -91,9 +91,17 @@ function populateMultiSelect(selectId, items) {
 }
 
 function updateDashboard() {
-    document.querySelectorAll(".loader-wrapper").forEach(el => el.style.display = 'none');
-    document.getElementById("mainDashboard").style.display = 'block';
+    document.querySelectorAll(".loader-wrapper").forEach(el => {
+        if (el) el.style.display = 'none';
+    });
+
+    const dashboard = document.getElementById("mainDashboard");
+    if (dashboard) {
+        dashboard.style.display = 'block';
+    } else {
+        console.warn("mainDashboard element not found in DOM.");
+    }
 
     console.log("Dashboard display triggered");
-    // Add chart and rendering functions here
+    // Place your chart rendering logic here
 }
