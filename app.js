@@ -24,6 +24,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   initializeEventListeners();
   updateDashboard();
   loadIndiaMap(); // Load the SVG map
+  
+  // Add this line to initialize all enhancements
+  if (typeof initializeEnhancements === 'function') {
+    initializeEnhancements();
+  }
 });
 
 // UPDATED: State name canonicalization with SVG spellings
@@ -737,83 +742,9 @@ function updateCharts() {
 }
 
 // UPDATED: Added watermark to all charts
-function updateBarChart(canvasId, instanceVar, data, title, color) {
-  const canvas = document.getElementById(canvasId);
-  if (!canvas) return;
+// Import the enhanced function from chart-solutions.js
+// The function is already available globally, just use it directly
 
-  // Destroy existing chart instance
-  if (window[instanceVar]) {
-    window[instanceVar].destroy();
-  }
-
-  const ctx = canvas.getContext('2d');
-  const labels = data.map(item => item.name);
-  const values = data.map(item => item.spending);
-
-  window[instanceVar] = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: labels,
-      datasets: [{
-        label: 'CSR Spending (₹ Cr)',
-        data: values,
-        backgroundColor: color,
-        borderColor: color,
-        borderWidth: 1
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        title: {
-          display: true,
-          text: title
-        },
-        legend: {
-          display: false
-        }
-      },
-      scales: {
-        y: {
-          beginAtZero: true,
-          ticks: {
-            callback: function(value) {
-              return '₹' + value.toLocaleString('en-IN');
-            }
-          }
-        },
-        x: {
-          ticks: {
-            maxRotation: 45,
-            minRotation: 0
-          }
-        }
-      },
-      // Add watermark plugin
-      onAnimationComplete: function() {
-        addWatermarkToChart(ctx, canvas);
-      }
-    }
-  });
-  
-  // Add watermark immediately after chart creation
-  setTimeout(() => {
-    addWatermarkToChart(ctx, canvas);
-  }, 100);
-}
-
-// NEW: Function to add transparent watermark to charts
-function addWatermarkToChart(ctx, canvas) {
-  ctx.save();
-  ctx.globalAlpha = 0.1;
-  ctx.fillStyle = '#000000';
-  ctx.font = '12px Arial';
-  ctx.textAlign = 'right';
-  ctx.textBaseline = 'bottom';
-  ctx.fillText('Prepared by Ashok Thanikonda', canvas.width - 10, canvas.height - 10);
-  ctx.restore();
-}
 
 // Export functions
 function exportFilteredData() {
@@ -954,74 +885,4 @@ function labelSelectedStatesWithValues(selectedStates, filteredData) {
       svg.appendChild(text);
     }
   });
-}
-
-
-
-// Plugin: Watermark
-const watermarkPlugin = {
-  id: 'customWatermark',
-  beforeDraw: (chart) => {
-    const ctx = chart.ctx;
-    ctx.save();
-    ctx.font = '12px sans-serif';
-    ctx.fillStyle = 'rgba(180, 180, 180, 0.3)';
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'bottom';
-    ctx.fillText('India CSR Dashboard', chart.width - 10, chart.height - 10);
-    ctx.restore();
-  }
-};
-
-// Get active filter summary
-function getSelectedFiltersSummary() {
-  const states = Array.from(document.getElementById('stateFilter')?.selectedOptions || []).map(o => o.value).join(', ') || 'All States';
-  const sectors = Array.from(document.getElementById('sectorFilter')?.selectedOptions || []).map(o => o.value).join(', ') || 'All Sectors';
-  const companies = Array.from(document.getElementById('companyFilter')?.selectedOptions || []).map(o => o.value).join(', ') || 'All Companies';
-  return `Filters: ${states} | ${sectors} | ${companies}`;
-}
-
-// Generate chart config
-function getEnhancedChartConfig(labels, data, chartTitle) {
-  return {
-    type: 'bar',
-    data: {
-      labels: labels,
-      datasets: [{
-        label: 'Spending (₹ Cr)',
-        data: data,
-        backgroundColor: '#1f7a8c',
-      }]
-    },
-    plugins: [ChartDataLabels, watermarkPlugin],
-    options: {
-      responsive: true,
-      plugins: {
-        title: {
-          display: true,
-          text: chartTitle,
-          font: { size: 18 }
-        },
-        subtitle: {
-          display: true,
-          text: 'India CSR Spending Dashboard | FY 2023-24\n' + getSelectedFiltersSummary(),
-          font: { size: 14 },
-          padding: { top: 4 }
-        },
-        datalabels: {
-          anchor: 'end',
-          align: 'end',
-          formatter: value => `₹ ${value} Cr`,
-          font: { weight: 'bold' }
-        }
-      },
-      scales: {
-        y: {
-          ticks: {
-            callback: (v) => `₹\n${v}\nCr`
-          }
-        }
-      }
-    }
-  };
 }
