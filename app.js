@@ -1,4 +1,4 @@
-// app.js (Complete Revised CSR Dashboard with All Requested Fixes)
+// app.js (Complete Revised CSR Dashboard with SVG State Name Fixes)
 // Last updated: Tue Aug 05, 2025
 
 console.log("Initializing dashboard...");
@@ -26,35 +26,46 @@ document.addEventListener("DOMContentLoaded", async () => {
   loadIndiaMap(); // Load the SVG map
 });
 
-// State name canonicalization for deduplication
+// UPDATED: State name canonicalization with SVG spellings
 function canonicalStateName(name) {
   if (!name || !name.trim()) return 'Unknown';
+  
   const n = name.trim().toLowerCase();
+  
+  // Handle Jammu and Kashmir variations
   if (["jammu and kashmir", "jammu & kashmir"].includes(n)) {
     return "Jammu and Kashmir";
   }
-  // Dadra/Daman merger (in SVG and data)
+  
+  // Handle Dadra/Daman merger (SVG uses different spelling)
   if ([
     "dadra and nagar haveli", "daman and diu", "dadra & nagar haveli",
-    "dadra and nagar haveli and daman and diu", "dādra and nagar haveli and damān and diu"
+    "dadra and nagar haveli and daman and diu", 
+    "dādra and nagar haveli and damān and diu"
   ].includes(n)) {
     return "Dādra and Nagar Haveli and Damān and Diu";
   }
-  // Odisha/Orissa
+  
+  // Handle Odisha/Orissa (SVG uses Orissa)
   if (["odisha", "orissa"].includes(n)) {
     return "Orissa";
   }
-  // Uttarakhand/Uttaranchal
+  
+  // Handle Uttarakhand/Uttaranchal (SVG uses Uttaranchal)
   if (["uttarakhand", "uttaranchal"].includes(n)) {
     return "Uttaranchal";
   }
-  // PAN India
+  
+  // Handle PAN India variations
   if (n.startsWith("pan india") || n === "pan india (other centralized funds)") {
     return "PAN India";
   }
+  
+  // Handle unspecified geography
   if (n.includes("not mentioned") || n.startsWith("nec") || n === "nec/not mentioned") {
     return "Unspecified geography";
   }
+  
   return name.trim();
 }
 
@@ -72,9 +83,6 @@ function formatStatesLabel(selectedStates) {
   
   // Count Dadra and Nagar Haveli and Daman and Diu as 1
   let count = canonicalStates.size;
-  if (canonicalStates.has("Dadra and Nagar Haveli and Daman and Diu")) {
-    // Already counted as 1 in the set
-  }
   
   return count === 1 ? "1 State/Union Territory" : `${count} States/Union Territories`;
 }
@@ -145,7 +153,8 @@ function handleMapHover(event) {
   const tooltip = document.getElementById('mapTooltip');
   if (tooltip) {
     const stateName = event.target.id || event.target.getAttribute('data-state') || 'Unknown';
-    const stateData = calculateStateData().find(s => s.name.toLowerCase() === stateName.toLowerCase());
+    const canonicalName = canonicalStateName(stateName);
+    const stateData = calculateStateData().find(s => s.name === canonicalName);
     
     if (stateData) {
       document.getElementById('tooltipState').textContent = stateData.name;
@@ -170,11 +179,13 @@ function handleMapLeave(event) {
 function handleMapClick(event) {
   const stateName = event.target.id || event.target.getAttribute('data-state');
   if (stateName) {
+    const canonicalName = canonicalStateName(stateName);
+    
     // Toggle state selection in filter
     const stateFilter = document.getElementById('stateFilter');
     if (stateFilter) {
       const options = Array.from(stateFilter.options);
-      const matchingOption = options.find(opt => opt.value.toLowerCase().includes(stateName.toLowerCase()));
+      const matchingOption = options.find(opt => canonicalStateName(opt.value) === canonicalName);
       if (matchingOption) {
         matchingOption.selected = !matchingOption.selected;
         applyFilters();
@@ -183,6 +194,7 @@ function handleMapClick(event) {
   }
 }
 
+// UPDATED: Robust state highlighting with SVG name matching
 function highlightMapStates(selectedStates) {
   const mapContainer = document.querySelector('#indiaMap');
   if (!mapContainer) return;
@@ -211,20 +223,31 @@ function highlightMapStates(selectedStates) {
     return;
   }
   
-  // Highlight specific states
+  // Highlight specific states - match both ways (data->SVG and SVG->data)
   canonicalStates.forEach(canonicalState => {
     if (canonicalState === 'Unknown') return;
     
-    statePaths.forEach(path => {
-      const pathId = path.id || path.getAttribute('data-state') || '';
-      const pathName = pathId.toLowerCase().replace(/[-_]/g, ' ');
-      const stateName = canonicalState.toLowerCase().replace(/[-_]/g, ' ');
-      
-      if (pathName.includes(stateName) || stateName.includes(pathName)) {
-        path.classList.add('state-selected');
-        path.style.fill = '#1f7a8c';
-      }
-    });
+    // Direct match by id or data-state
+    let matchedPath = mapContainer.querySelector(`[id="${canonicalState}"], [data-state="${canonicalState}"]`);
+    
+    // If no direct match, try reverse lookup (for cases where SVG has different spelling)
+    if (!matchedPath) {
+      statePaths.forEach(path => {
+        const pathId = path.id || path.getAttribute('data-state') || '';
+        const pathCanonical = canonicalStateName(pathId);
+        
+        if (pathCanonical === canonicalState) {
+          matchedPath = path;
+        }
+      });
+    }
+    
+    if (matchedPath) {
+      matchedPath.classList.add('state-selected');
+      matchedPath.style.fill = '#1f7a8c';
+    } else {
+      console.warn(`No SVG path found for state: ${canonicalState}`);
+    }
   });
 }
 
