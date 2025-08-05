@@ -878,3 +878,73 @@ function exportToCSV(data, filename) {
 }
 
 console.log("Dashboard script loaded successfully");
+
+
+
+// Plugin: Watermark
+const watermarkPlugin = {
+  id: 'customWatermark',
+  beforeDraw: (chart) => {
+    const ctx = chart.ctx;
+    ctx.save();
+    ctx.font = '12px sans-serif';
+    ctx.fillStyle = 'rgba(180, 180, 180, 0.3)';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText('India CSR Dashboard', chart.width - 10, chart.height - 10);
+    ctx.restore();
+  }
+};
+
+// Get active filter summary
+function getSelectedFiltersSummary() {
+  const states = Array.from(document.getElementById('stateFilter')?.selectedOptions || []).map(o => o.value).join(', ') || 'All States';
+  const sectors = Array.from(document.getElementById('sectorFilter')?.selectedOptions || []).map(o => o.value).join(', ') || 'All Sectors';
+  const companies = Array.from(document.getElementById('companyFilter')?.selectedOptions || []).map(o => o.value).join(', ') || 'All Companies';
+  return `Filters: ${states} | ${sectors} | ${companies}`;
+}
+
+// Generate chart config
+function getEnhancedChartConfig(labels, data, chartTitle) {
+  return {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Spending (₹ Cr)',
+        data: data,
+        backgroundColor: '#1f7a8c',
+      }]
+    },
+    plugins: [ChartDataLabels, watermarkPlugin],
+    options: {
+      responsive: true,
+      plugins: {
+        title: {
+          display: true,
+          text: chartTitle,
+          font: { size: 18 }
+        },
+        subtitle: {
+          display: true,
+          text: 'India CSR Spending Dashboard | FY 2023-24\n' + getSelectedFiltersSummary(),
+          font: { size: 14 },
+          padding: { top: 4 }
+        },
+        datalabels: {
+          anchor: 'end',
+          align: 'end',
+          formatter: value => `₹ ${value} Cr`,
+          font: { weight: 'bold' }
+        }
+      },
+      scales: {
+        y: {
+          ticks: {
+            callback: (v) => `₹\n${v}\nCr`
+          }
+        }
+      }
+    }
+  };
+}
