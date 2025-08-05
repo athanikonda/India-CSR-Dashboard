@@ -17,7 +17,7 @@
                 <p class="subtitle">FY 2023-24 • Complete Live Dataset</p>
                 <div class="dataset-stats">
                     <span class="stat-badge" id="totalCompaniesHeader">Loading...</span>
-                    <span class="stat-badge" id="totalStatesHeader">43 States</span>
+                    <span class="stat-badge" id="totalStatesHeader">43 States/Union Territories</span>
                     <span class="stat-badge" id="totalProjectsHeader">Loading...</span>
                     <span class="stat-badge" id="totalSpendingHeader">Loading...</span>
                 </div>
@@ -154,40 +154,8 @@
                     
                     <div class="map-section">
                         <div class="map-container">
-                            <svg id="indiaMap" viewBox="0 0 1000 800">
-                                <!-- India states will be loaded here -->
-                                <g id="statesGroup">
-                                    <!-- Simplified India state paths -->
-                                    <path id="maharashtra" d="M300,400 L400,400 L400,500 L300,500 Z" class="state-path" data-state="Maharashtra" data-spending="0" data-projects="0"/>
-                                    <path id="gujarat" d="M200,350 L300,350 L300,450 L200,450 Z" class="state-path" data-state="Gujarat" data-spending="0" data-projects="0"/>
-                                    <path id="karnataka" d="M300,500 L400,500 L400,600 L300,600 Z" class="state-path" data-state="Karnataka" data-spending="0" data-projects="0"/>
-                                    <path id="tamilnadu" d="M350,600 L450,600 L450,700 L350,700 Z" class="state-path" data-state="Tamil Nadu" data-spending="0" data-projects="0"/>
-                                    <path id="delhi" d="M400,250 L450,250 L450,300 L400,300 Z" class="state-path" data-state="Delhi" data-spending="0" data-projects="0"/>
-                                    <path id="uttarpradesh" d="M450,250 L550,250 L550,350 L450,350 Z" class="state-path" data-state="Uttar Pradesh" data-spending="0" data-projects="0"/>
-                                    <path id="odisha" d="M550,400 L650,400 L650,500 L550,500 Z" class="state-path" data-state="Odisha" data-spending="0" data-projects="0"/>
-                                    <path id="rajasthan" d="M300,250 L400,250 L400,350 L300,350 Z" class="state-path" data-state="Rajasthan" data-spending="0" data-projects="0"/>
-                                    <path id="andhrapradesh" d="M450,500 L550,500 L550,600 L450,600 Z" class="state-path" data-state="Andhra Pradesh" data-spending="0" data-projects="0"/>
-                                    <path id="westbengal" d="M600,350 L700,350 L700,450 L600,450 Z" class="state-path" data-state="West Bengal" data-spending="0" data-projects="0"/>
-                                    <path id="telangana" d="M450,450 L550,450 L550,500 L450,450 Z" class="state-path" data-state="Telangana" data-spending="0" data-projects="0"/>
-                                    <path id="haryana" d="M400,200 L450,200 L450,250 L400,250 Z" class="state-path" data-state="Haryana" data-spending="0" data-projects="0"/>
-                                    <path id="madhyapradesh" d="M400,350 L550,350 L550,450 L400,450 Z" class="state-path" data-state="Madhya Pradesh" data-spending="0" data-projects="0"/>
-                                    <path id="bihar" d="M550,300 L650,300 L650,400 L550,400 Z" class="state-path" data-state="Bihar" data-spending="0" data-projects="0"/>
-                                    <path id="kerala" d="M300,650 L350,650 L350,720 L300,720 Z" class="state-path" data-state="Kerala" data-spending="0" data-projects="0"/>
-                                </g>
-                                
-                                <!-- Legend -->
-                                <g id="mapLegend" transform="translate(50, 650)">
-                                    <text x="0" y="20" class="legend-title">CSR Spending (₹ Cr)</text>
-                                    <rect x="0" y="30" width="20" height="15" fill="#fff2f0" stroke="#ccc"/>
-                                    <text x="25" y="42" class="legend-text">0-500</text>
-                                    <rect x="80" y="30" width="20" height="15" fill="#ffccc7" stroke="#ccc"/>
-                                    <text x="105" y="42" class="legend-text">500-1000</text>
-                                    <rect x="180" y="30" width="20" height="15" fill="#ff7875" stroke="#ccc"/>
-                                    <text x="205" y="42" class="legend-text">1000-2000</text>
-                                    <rect x="280" y="30" width="20" height="15" fill="#f5222d" stroke="#ccc"/>
-                                    <text x="305" y="42" class="legend-text">2000+</text>
-                                </g>
-                            </svg>
+                            <!-- SVG will be loaded here dynamically -->
+                            <div id="indiaMap"></div>
                             
                             <!-- Map tooltip -->
                             <div id="mapTooltip" class="map-tooltip">
