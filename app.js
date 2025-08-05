@@ -1,4 +1,4 @@
-// app.js (Fully Revised CSR Dashboard with All Fixes)
+// app.js (Fully Revised CSR Dashboard with CORRECT Column Names)
 // Last updated: Tue Aug 05, 2025
 
 console.log("Initializing dashboard...");
@@ -50,7 +50,7 @@ async function loadFullDataset() {
           filteredData = [...rawData];
           
           console.log("Dataset loaded:", filteredData.length, "records");
-          console.log("Sample spending values:", rawData.slice(0, 5).map(r => r["Total Spending (₹ Cr)"]));
+          console.log("Sample spending values:", rawData.slice(0, 5).map(r => r["Project Amount Spent (In INR Cr.)"]));
           resolve();
         },
         error: function (err) {
@@ -224,9 +224,9 @@ function updateDashboard() {
   const mainDashboard = document.getElementById('mainDashboard');
   if (mainDashboard) mainDashboard.style.display = 'block';
 
-  // Calculate metrics with robust parsing
+  // Calculate metrics with CORRECT column name
   const totalSpending = filteredData.reduce((sum, row) => {
-    return sum + parseSpending(row["Total Spending (₹ Cr)"]);
+    return sum + parseSpending(row["Project Amount Spent (In INR Cr.)"]);
   }, 0);
 
   const companies = new Set(filteredData.map(r => r['Company Name']).filter(name => name && name.trim()));
@@ -338,12 +338,12 @@ function updateCompaniesTable() {
 function calculateStateData() {
   const stateMap = new Map();
   const totalSpending = filteredData.reduce((sum, row) => {
-    return sum + parseSpending(row["Total Spending (₹ Cr)"]);
+    return sum + parseSpending(row["Project Amount Spent (In INR Cr.)"]);
   }, 0);
 
   filteredData.forEach(row => {
     const state = row['CSR State']?.trim() || 'Unknown';
-    const spending = parseSpending(row["Total Spending (₹ Cr)"]);
+    const spending = parseSpending(row["Project Amount Spent (In INR Cr.)"]);
     const company = row['Company Name']?.trim();
 
     if (!stateMap.has(state)) {
@@ -374,12 +374,12 @@ function calculateStateData() {
 function calculateSectorData() {
   const sectorMap = new Map();
   const totalSpending = filteredData.reduce((sum, row) => {
-    return sum + parseSpending(row["Total Spending (₹ Cr)"]);
+    return sum + parseSpending(row["Project Amount Spent (In INR Cr.)"]);
   }, 0);
 
   filteredData.forEach(row => {
     const sector = row['CSR Development Sector']?.trim() || 'Unknown';
-    const spending = parseSpending(row["Total Spending (₹ Cr)"]);
+    const spending = parseSpending(row["Project Amount Spent (In INR Cr.)"]);
     const company = row['Company Name']?.trim();
 
     if (!sectorMap.has(sector)) {
@@ -413,7 +413,7 @@ function calculateCompanyData() {
     const company = row['Company Name']?.trim();
     if (!company) return;
 
-    const spending = parseSpending(row["Total Spending (₹ Cr)"]);
+    const spending = parseSpending(row["Project Amount Spent (In INR Cr.)"]);
 
     if (!companyMap.has(company)) {
       companyMap.set(company, {
