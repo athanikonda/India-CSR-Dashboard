@@ -881,6 +881,83 @@ console.log("Dashboard script loaded successfully");
 
 
 
+const stateCoordinates = {
+  "Andhra Pradesh": [580, 620],
+  "Arunachal Pradesh": [950, 260],
+  "Assam": [860, 320],
+  "Bihar": [700, 310],
+  "Chhattisgarh": [640, 440],
+  "Goa": [470, 630],
+  "Gujarat": [360, 500],
+  "Haryana": [560, 280],
+  "Himachal Pradesh": [520, 240],
+  "Jharkhand": [720, 370],
+  "Karnataka": [490, 720],
+  "Kerala": [520, 830],
+  "Madhya Pradesh": [540, 450],
+  "Maharashtra": [460, 580],
+  "Manipur": [920, 330],
+  "Meghalaya": [880, 340],
+  "Mizoram": [920, 400],
+  "Nagaland": [950, 300],
+  "Odisha": [640, 480],
+  "Punjab": [500, 270],
+  "Rajasthan": [420, 340],
+  "Sikkim": [800, 250],
+  "Tamil Nadu": [590, 790],
+  "Telangana": [560, 520],
+  "Tripura": [900, 370],
+  "Uttar Pradesh": [600, 300],
+  "Uttarakhand": [570, 250],
+  "West Bengal": [760, 410],
+  "Andaman and Nicobar Islands": [700, 950],
+  "Chandigarh": [530, 270],
+  "Dādra and Nagar Haveli and Damān and Diu": [400, 600],
+  "Delhi": [570, 260],
+  "Jammu and Kashmir": [510, 180],
+  "Ladakh": [550, 130],
+  "Lakshadweep": [350, 920],
+  "Puducherry": [600, 850]
+};
+
+
+
+function labelSelectedStatesWithValues(selectedStates, filteredData) {
+  const svg = document.getElementById("indiaMap");
+  if (!svg) return;
+
+  // Remove old labels
+  svg.querySelectorAll('.map-label').forEach(e => e.remove());
+
+  const stateTotals = {};
+
+  filteredData.forEach(row => {
+    const state = canonicalStateName(row["CSR State"]);
+    const amt = parseFloat(row["Project Amount Spent (In INR Cr.)"] || 0);
+    stateTotals[state] = (stateTotals[state] || 0) + amt;
+  });
+
+  selectedStates.forEach(state => {
+    const coords = stateCoordinates[state];
+    const val = stateTotals[state]?.toFixed(2);
+    if (coords && val) {
+      const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      text.setAttribute("x", coords[0]);
+      text.setAttribute("y", coords[1]);
+      text.setAttribute("class", "map-label");
+      text.setAttribute("text-anchor", "middle");
+      text.setAttribute("font-size", "14");
+      text.setAttribute("fill", "#333");
+      text.setAttribute("stroke", "white");
+      text.setAttribute("stroke-width", "0.5");
+      text.textContent = `₹${val} Cr`;
+      svg.appendChild(text);
+    }
+  });
+}
+
+
+
 // Plugin: Watermark
 const watermarkPlugin = {
   id: 'customWatermark',
