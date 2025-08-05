@@ -1,4 +1,4 @@
-// app.js (Fully Revised CSR Dashboard with CORRECT Column Names)
+// app.js (Complete Revised CSR Dashboard with All Requested Fixes)
 // Last updated: Tue Aug 05, 2025
 
 console.log("Initializing dashboard...");
@@ -23,7 +23,58 @@ document.addEventListener("DOMContentLoaded", async () => {
   initializeFilters();
   initializeEventListeners();
   updateDashboard();
+  loadIndiaMap(); // Load the SVG map
 });
+
+// State name canonicalization for deduplication
+function canonicalStateName(name) {
+  if (!name || !name.trim()) return 'Unknown';
+  
+  const n = name.trim().toUpperCase();
+  
+  // Handle Jammu and Kashmir variations
+  if (["JAMMU AND KASHMIR", "JAMMU & KASHMIR"].includes(n)) {
+    return "Jammu and Kashmir";
+  }
+  
+  // Handle Dadra/Daman merger (always treat as one)
+  if (["DADRA AND NAGAR HAVELI", "DAMAN AND DIU", "DADRA & NAGAR HAVELI", "DADRA AND NAGAR HAVELI AND DAMAN AND DIU"].includes(n)) {
+    return "Dadra and Nagar Haveli and Daman and Diu";
+  }
+  
+  // Handle PAN India variations
+  if (n.startsWith("PAN INDIA") || n === "PAN INDIA (OTHER CENTRALIZED FUNDS)") {
+    return "PAN India";
+  }
+  
+  // Handle unspecified geography
+  if (n.includes("NOT MENTIONED") || n.startsWith("NEC") || n === "NEC/NOT MENTIONED") {
+    return "Unspecified geography";
+  }
+  
+  return name.trim();
+}
+
+// State label formatting for summary panel
+function formatStatesLabel(selectedStates) {
+  const canonicalStates = new Set(selectedStates.map(canonicalStateName));
+  
+  if (canonicalStates.has("PAN India")) {
+    return "PAN India";
+  }
+  
+  if (canonicalStates.has("Unspecified geography")) {
+    return "Unspecified geography";
+  }
+  
+  // Count Dadra and Nagar Haveli and Daman and Diu as 1
+  let count = canonicalStates.size;
+  if (canonicalStates.has("Dadra and Nagar Haveli and Daman and Diu")) {
+    // Already counted as 1 in the set
+  }
+  
+  return count === 1 ? "1 State/Union Territory" : `${count} States/Union Territories`;
+}
 
 async function loadFullDataset() {
   console.log("DEBUG: loadFullDataset started");
@@ -65,6 +116,115 @@ async function loadFullDataset() {
   }
 }
 
+async function loadIndiaMap() {
+  try {
+    const response = await fetch('/india-states.svg');
+    const svgText = await response.text();
+    
+    const mapContainer = document.querySelector('#indiaMap');
+    if (mapContainer) {
+      mapContainer.innerHTML = svgText;
+      
+      // Add event listeners to state paths for interactivity
+      const statePaths = mapContainer.querySelectorAll('path, g[id]');
+      statePaths.forEach(path => {
+        path.addEventListener('mouseenter', handleMapHover);
+        path.addEventListener('mouseleave', handleMapLeave);
+        path.addEventListener('click', handleMapClick);
+      });
+    }
+  } catch (error) {
+    console.error("Error loading India map:", error);
+  }
+}
+
+function handleMapHover(event) {
+  const tooltip = document.getElementById('mapTooltip');
+  if (tooltip) {
+    const stateName = event.target.id || event.target.getAttribute('data-state') || 'Unknown';
+    const stateData = calculateStateData().find(s => s.name.toLowerCase() === stateName.toLowerCase());
+    
+    if (stateData) {
+      document.getElementById('tooltipState').textContent = stateData.name;
+      document.getElementById('tooltipSpending').textContent = `₹${stateData.spending.toLocaleString('en-IN', {maximumFractionDigits: 2})} Cr`;
+      document.getElementById('tooltipProjects').textContent = stateData.projects.toLocaleString();
+      document.getElementById('tooltipCompanies').textContent = stateData.companies.toLocaleString();
+      
+      tooltip.style.display = 'block';
+      tooltip.style.left = event.pageX + 10 + 'px';
+      tooltip.style.top = event.pageY - 10 + 'px';
+    }
+  }
+}
+
+function handleMapLeave(event) {
+  const tooltip = document.getElementById('mapTooltip');
+  if (tooltip) {
+    tooltip.style.display = 'none';
+  }
+}
+
+function handleMapClick(event) {
+  const stateName = event.target.id || event.target.getAttribute('data-state');
+  if (stateName) {
+    // Toggle state selection in filter
+    const stateFilter = document.getElementById('stateFilter');
+    if (stateFilter) {
+      const options = Array.from(stateFilter.options);
+      const matchingOption = options.find(opt => opt.value.toLowerCase().includes(stateName.toLowerCase()));
+      if (matchingOption) {
+        matchingOption.selected = !matchingOption.selected;
+        applyFilters();
+      }
+    }
+  }
+}
+
+function highlightMapStates(selectedStates) {
+  const mapContainer = document.querySelector('#indiaMap');
+  if (!mapContainer) return;
+  
+  const statePaths = mapContainer.querySelectorAll('path, g[id]');
+  
+  // Remove all existing highlights
+  statePaths.forEach(path => {
+    path.classList.remove('state-selected');
+    path.style.fill = '';
+  });
+  
+  const canonicalStates = selectedStates.map(canonicalStateName);
+  
+  // If PAN India is selected, highlight entire map
+  if (canonicalStates.includes("PAN India")) {
+    statePaths.forEach(path => {
+      path.classList.add('state-selected');
+      path.style.fill = '#1f7a8c';
+    });
+    return;
+  }
+  
+  // If Unspecified geography is selected, no highlighting
+  if (canonicalStates.includes("Unspecified geography")) {
+    return;
+  }
+  
+  // Highlight specific states
+  canonicalStates.forEach(canonicalState => {
+    if (canonicalState === 'Unknown') return;
+    
+    statePaths.forEach(path => {
+      const pathId = path.id || path.getAttribute('data-state') || '';
+      const pathName = pathId.toLowerCase().replace(/[-_]/g, ' ');
+      const stateName = canonicalState.toLowerCase().replace(/[-_]/g, ' ');
+      
+      if (pathName.includes(stateName) || stateName.includes(pathName)) {
+        path.classList.add('state-selected');
+        path.style.fill = '#1f7a8c';
+      }
+    });
+  });
+}
+
 function initializeTabs() {
   const tabs = document.querySelectorAll(".tab-button");
   const tabContents = document.querySelectorAll(".tab-content");
@@ -95,9 +255,16 @@ function initializeFilters() {
   const typeSet = new Set();
 
   rawData.forEach(row => {
-    if (row['CSR State'] && row['CSR State'].trim()) stateSet.add(row['CSR State'].trim());
-    if (row['CSR Development Sector'] && row['CSR Development Sector'].trim()) sectorSet.add(row['CSR Development Sector'].trim());
-    if (row['PSU/Non-PSU'] && row['PSU/Non-PSU'].trim()) typeSet.add(row['PSU/Non-PSU'].trim());
+    const canonicalState = canonicalStateName(row['CSR State']);
+    if (canonicalState && canonicalState !== 'Unknown') stateSet.add(canonicalState);
+    
+    if (row['CSR Development Sector'] && row['CSR Development Sector'].trim()) {
+      sectorSet.add(row['CSR Development Sector'].trim());
+    }
+    
+    if (row['PSU/Non-PSU'] && row['PSU/Non-PSU'].trim()) {
+      typeSet.add(row['PSU/Non-PSU'].trim());
+    }
   });
 
   populateMultiSelect("stateFilter", [...stateSet].sort());
@@ -122,7 +289,7 @@ function populateMultiSelect(selectId, items) {
     const option = document.createElement("option");
     option.value = item;
     option.text = item;
-    option.selected = false; // Only "All" is selected by default
+    option.selected = false;
     select.appendChild(option);
   });
 }
@@ -146,6 +313,56 @@ function initializeEventListeners() {
   document.getElementById('exportStatesData')?.addEventListener('click', exportStatesData);
   document.getElementById('exportSectorsData')?.addEventListener('click', exportSectorsData);
   document.getElementById('exportCompaniesData')?.addEventListener('click', exportCompaniesData);
+  
+  // Chart download buttons
+  initializeChartDownloads();
+}
+
+function initializeChartDownloads() {
+  const downloadButtons = document.querySelectorAll('.chart-download-btn');
+  downloadButtons.forEach(button => {
+    button.addEventListener('click', function() {
+      const chartId = this.getAttribute('data-chart');
+      downloadChart(chartId);
+    });
+  });
+}
+
+function downloadChart(chartId) {
+  let chartInstance = null;
+  let fileName = 'chart.png';
+  
+  switch(chartId) {
+    case 'overviewStates':
+      chartInstance = window.overviewStatesChartInstance;
+      fileName = 'top_15_states.png';
+      break;
+    case 'overviewSectors':
+      chartInstance = window.overviewSectorsChartInstance;
+      fileName = 'top_development_sectors.png';
+      break;
+    case 'states':
+      chartInstance = window.statesChartInstance;
+      fileName = 'all_states_analysis.png';
+      break;
+    case 'sectors':
+      chartInstance = window.sectorsChartInstance;
+      fileName = 'all_sectors_analysis.png';
+      break;
+    case 'companies':
+      chartInstance = window.companiesChartInstance;
+      fileName = 'top_companies.png';
+      break;
+  }
+  
+  if (chartInstance) {
+    const link = document.createElement('a');
+    link.href = chartInstance.toBase64Image('image/png', 1.0);
+    link.download = fileName;
+    link.click();
+  } else {
+    console.warn(`Chart instance not found for ${chartId}`);
+  }
 }
 
 function applyFilters() {
@@ -160,7 +377,8 @@ function applyFilters() {
   const showAllPSU = psuFilter.includes("__ALL__");
 
   filteredData = rawData.filter(row => {
-    const stateMatch = showAllStates || stateFilter.includes(row['CSR State']);
+    const canonicalState = canonicalStateName(row['CSR State']);
+    const stateMatch = showAllStates || stateFilter.includes(canonicalState);
     const sectorMatch = showAllSectors || sectorFilter.includes(row['CSR Development Sector']);
     const psuMatch = showAllPSU || psuFilter.includes(row['PSU/Non-PSU']);
     const companyMatch = !companySearch || row['Company Name']?.toLowerCase().includes(companySearch);
@@ -171,6 +389,10 @@ function applyFilters() {
   currentPage = 1;
   updateDashboard();
   updateFilterResults();
+  
+  // Update map highlighting
+  const selectedStates = showAllStates ? Array.from(new Set(rawData.map(r => canonicalStateName(r['CSR State'])))) : stateFilter.filter(s => s !== "__ALL__");
+  highlightMapStates(selectedStates);
 }
 
 function resetFilters() {
@@ -191,6 +413,7 @@ function resetFilters() {
   currentPage = 1;
   updateDashboard();
   updateFilterResults();
+  highlightMapStates([]);
 }
 
 function updateFilterResults() {
@@ -224,34 +447,38 @@ function updateDashboard() {
   const mainDashboard = document.getElementById('mainDashboard');
   if (mainDashboard) mainDashboard.style.display = 'block';
 
-  // Calculate metrics with CORRECT column name
+  // Calculate metrics with canonical state names
   const totalSpending = filteredData.reduce((sum, row) => {
     return sum + parseSpending(row["Project Amount Spent (In INR Cr.)"]);
   }, 0);
 
   const companies = new Set(filteredData.map(r => r['Company Name']).filter(name => name && name.trim()));
-  const states = new Set(filteredData.map(r => r['CSR State']).filter(state => state && state.trim()));
+  const canonicalStates = new Set(filteredData.map(r => canonicalStateName(r['CSR State'])).filter(state => state && state !== 'Unknown'));
   const totalProjects = filteredData.length;
   const avgPerProject = totalProjects > 0 ? totalSpending / totalProjects : 0;
 
   console.log("DEBUG: Calculated metrics:", {
     totalSpending,
     totalCompanies: companies.size,
-    totalStates: states.size,
+    totalStates: canonicalStates.size,
     totalProjects,
     avgPerProject
   });
 
-  // Update header stats
-  updateElement('totalCompaniesHeader', `${companies.size} Companies`);
-  updateElement('totalStatesHeader', `${states.size} States`);
-  updateElement('totalProjectsHeader', `${totalProjects.toLocaleString()} Projects`);
+  // Create states label with special handling
+  const statesArray = Array.from(canonicalStates);
+  const statesLabel = formatStatesLabel(statesArray);
+
+  // Update header stats with proper number formatting
+  updateElement('totalCompaniesHeader', `${companies.size.toLocaleString('en-IN')} Companies`);
+  updateElement('totalStatesHeader', statesLabel);
+  updateElement('totalProjectsHeader', `${totalProjects.toLocaleString('en-IN')} Projects`);
   updateElement('totalSpendingHeader', `₹${totalSpending.toLocaleString('en-IN', {maximumFractionDigits: 2})} Cr`);
 
   // Update metric cards
   updateElement('totalSpendingMetric', `₹${totalSpending.toLocaleString('en-IN', {maximumFractionDigits: 2})} Cr`);
-  updateElement('totalCompaniesMetric', companies.size.toLocaleString());
-  updateElement('totalProjectsMetric', totalProjects.toLocaleString());
+  updateElement('totalCompaniesMetric', companies.size.toLocaleString('en-IN'));
+  updateElement('totalProjectsMetric', totalProjects.toLocaleString('en-IN'));
   updateElement('avgPerProjectMetric', `₹${avgPerProject.toLocaleString('en-IN', {maximumFractionDigits: 2})} Cr`);
 
   // Update tables
@@ -280,14 +507,14 @@ function updateStatesTable() {
     <tr>
       <td>${state.name}</td>
       <td class="number">₹${state.spending.toLocaleString('en-IN', {maximumFractionDigits: 2})}</td>
-      <td class="number">${state.projects.toLocaleString()}</td>
-      <td class="number">${state.companies.toLocaleString()}</td>
+      <td class="number">${state.projects.toLocaleString('en-IN')}</td>
+      <td class="number">${state.companies.toLocaleString('en-IN')}</td>
       <td class="number">₹${state.average.toLocaleString('en-IN', {maximumFractionDigits: 2})}</td>
       <td class="number">${state.percentage.toFixed(2)}%</td>
     </tr>
   `).join('');
 
-  updateElement('statesCount', `${statesData.length} states`);
+  updateElement('statesCount', `${statesData.length} states/union territories`);
 }
 
 function updateSectorsTable() {
@@ -300,8 +527,8 @@ function updateSectorsTable() {
     <tr>
       <td>${sector.name}</td>
       <td class="number">₹${sector.spending.toLocaleString('en-IN', {maximumFractionDigits: 2})}</td>
-      <td class="number">${sector.projects.toLocaleString()}</td>
-      <td class="number">${sector.companies.toLocaleString()}</td>
+      <td class="number">${sector.projects.toLocaleString('en-IN')}</td>
+      <td class="number">${sector.companies.toLocaleString('en-IN')}</td>
       <td class="number">${sector.percentage.toFixed(2)}%</td>
     </tr>
   `).join('');
@@ -327,11 +554,11 @@ function updateCompaniesTable() {
       <td>${company.state}</td>
       <td>${company.sector}</td>
       <td class="number">₹${company.spending.toLocaleString('en-IN', {maximumFractionDigits: 2})}</td>
-      <td class="number">${company.projects.toLocaleString()}</td>
+      <td class="number">${company.projects.toLocaleString('en-IN')}</td>
     </tr>
   `).join('');
 
-  updateElement('companyCount', `${companiesData.length.toLocaleString()} companies`);
+  updateElement('companyCount', `${companiesData.length.toLocaleString('en-IN')} companies`);
   updatePagination(companiesData.length);
 }
 
@@ -342,7 +569,7 @@ function calculateStateData() {
   }, 0);
 
   filteredData.forEach(row => {
-    const state = row['CSR State']?.trim() || 'Unknown';
+    const state = canonicalStateName(row['CSR State']);
     const spending = parseSpending(row["Project Amount Spent (In INR Cr.)"]);
     const company = row['Company Name']?.trim();
 
@@ -421,7 +648,7 @@ function calculateCompanyData() {
         spending: 0,
         projects: 0,
         psuType: row['PSU/Non-PSU']?.trim() || 'Unknown',
-        state: row['CSR State']?.trim() || 'Unknown',
+        state: canonicalStateName(row['CSR State']),
         sector: row['CSR Development Sector']?.trim() || 'Unknown'
       });
     }
