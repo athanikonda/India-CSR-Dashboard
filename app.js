@@ -29,29 +29,32 @@ document.addEventListener("DOMContentLoaded", async () => {
 // State name canonicalization for deduplication
 function canonicalStateName(name) {
   if (!name || !name.trim()) return 'Unknown';
-  
-  const n = name.trim().toUpperCase();
-  
-  // Handle Jammu and Kashmir variations
-  if (["JAMMU AND KASHMIR", "JAMMU & KASHMIR"].includes(n)) {
+  const n = name.trim().toLowerCase();
+  if (["jammu and kashmir", "jammu & kashmir"].includes(n)) {
     return "Jammu and Kashmir";
   }
-  
-  // Handle Dadra/Daman merger (always treat as one)
-  if (["DADRA AND NAGAR HAVELI", "DAMAN AND DIU", "DADRA & NAGAR HAVELI", "DADRA AND NAGAR HAVELI AND DAMAN AND DIU"].includes(n)) {
-    return "Dadra and Nagar Haveli and Daman and Diu";
+  // Dadra/Daman merger (in SVG and data)
+  if ([
+    "dadra and nagar haveli", "daman and diu", "dadra & nagar haveli",
+    "dadra and nagar haveli and daman and diu", "dādra and nagar haveli and damān and diu"
+  ].includes(n)) {
+    return "Dādra and Nagar Haveli and Damān and Diu";
   }
-  
-  // Handle PAN India variations
-  if (n.startsWith("PAN INDIA") || n === "PAN INDIA (OTHER CENTRALIZED FUNDS)") {
+  // Odisha/Orissa
+  if (["odisha", "orissa"].includes(n)) {
+    return "Orissa";
+  }
+  // Uttarakhand/Uttaranchal
+  if (["uttarakhand", "uttaranchal"].includes(n)) {
+    return "Uttaranchal";
+  }
+  // PAN India
+  if (n.startsWith("pan india") || n === "pan india (other centralized funds)") {
     return "PAN India";
   }
-  
-  // Handle unspecified geography
-  if (n.includes("NOT MENTIONED") || n.startsWith("NEC") || n === "NEC/NOT MENTIONED") {
+  if (n.includes("not mentioned") || n.startsWith("nec") || n === "nec/not mentioned") {
     return "Unspecified geography";
   }
-  
   return name.trim();
 }
 
