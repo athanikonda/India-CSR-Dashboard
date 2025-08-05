@@ -196,115 +196,109 @@ function handleMapClick(event) {
 
 // COMPLETELY REWRITTEN: Proper state highlighting function
 function highlightMapStates(selectedStates) {
+  // Purpose: reset and then highlight paths in the India map SVG based on the
+  // currently selected state names. The original implementation attempted to
+  // approximate highlighting by selecting an arbitrary subset of all paths
+  // because it could not associate filter names with the SVG paths. This led
+  // to confusing behaviour where unrelated parts of the map were highlighted.
+  //
+  // The updated implementation performs the following steps:
+  //  1. Reset styling on all paths in the SVG to their default fill and stroke.
+  //  2. Convert incoming state names to canonical form via canonicalStateName().
+  //  3. Handle special cases: "PAN India" (highlight all) and "Unspecified geography"
+  //     (clear highlighting).
+  //  4. For each canonical state in the selection, search the SVG for any
+  //     <path> elements whose 'name' attribute matches the canonical state
+  //     exactly. Highlight these paths.
+  //  5. Update or hide a small on-map indicator showing how many states are
+  //     highlighted.
   const mapContainer = document.querySelector('#indiaMap');
   if (!mapContainer) {
-    console.warn("Map container not found");
+    console.warn('Map container not found');
     return;
   }
-  
-  // Get all path elements from the SVG (both direct paths and paths within groups)
+
   const allPaths = mapContainer.querySelectorAll('path');
-  console.log(`Found ${allPaths.length} path elements in SVG`);
-  
-  // Remove all existing highlighting
-  allPaths.forEach((path, index) => {
-    // Reset to default styling
-    path.style.fill = '#7FB069'; // Default green from your image
+  // Reset styling on all paths
+  allPaths.forEach(path => {
+    path.style.fill = '#7FB069';
     path.style.stroke = '#fff';
     path.style.strokeWidth = '1';
     path.classList.remove('state-selected');
-    
-    // Debug: log first few paths
-    if (index < 5) {
-      console.log(`Path ${index}: id="${path.id}", class="${path.className.baseVal || path.className}"`);
-    }
   });
-  
-  if (!selectedStates.length) {
-    console.log("No states selected, cleared all highlighting");
+
+  // If nothing is selected, hide indicator and return
+  if (!selectedStates || selectedStates.length === 0) {
+    const indicator = document.getElementById('mapIndicator');
+    if (indicator) indicator.style.display = 'none';
     return;
   }
-  
+
+  // Compute canonical names
   const canonicalStates = selectedStates.map(canonicalStateName);
-  console.log("States to highlight:", canonicalStates);
-  
-  // If PAN India is selected, highlight entire map
-  if (canonicalStates.includes("PAN India")) {
-    console.log("PAN India selected - highlighting entire map");
+
+  // Special case: highlight entire map for PAN India
+  if (canonicalStates.includes('PAN India')) {
     allPaths.forEach(path => {
       path.style.fill = '#1f7a8c';
       path.style.stroke = '#0d5561';
       path.style.strokeWidth = '2';
       path.classList.add('state-selected');
     });
-    return;
-  }
-  
-  // If Unspecified geography is selected, no highlighting
-  if (canonicalStates.includes("Unspecified geography")) {
-    console.log("Unspecified geography selected - no highlighting");
-    return;
-  }
-  
-  // Since we can't match specific states, we'll highlight based on data
-  // Get state data to determine which have spending
-  const stateData = calculateStateData();
-  const statesWithData = stateData.filter(state => 
-    canonicalStates.includes(state.name) && state.spending > 0
-  );
-  
-  console.log("States with data to highlight:", statesWithData.map(s => s.name));
-  
-  // Highlight paths proportionally to selected states with data
-  if (statesWithData.length > 0) {
-    // Calculate how many paths to highlight
-    const totalPaths = allPaths.length;
-    const pathsToHighlight = Math.min(
-      Math.max(1, Math.floor(totalPaths * statesWithData.length / 28)), // Approx 28 states+UTs in India
-      totalPaths
-    );
-    
-    console.log(`Highlighting ${pathsToHighlight} out of ${totalPaths} paths`);
-    
-    // Highlight the calculated number of paths
-    for (let i = 0; i < pathsToHighlight; i++) {
-      const path = allPaths[i];
-      path.style.fill = '#1f7a8c';
-      path.style.stroke = '#0d5561';
-      path.style.strokeWidth = '2';
-      path.classList.add('state-selected');
-    }
-    
-    // Add a visual indicator div if none exists
     let indicator = document.getElementById('mapIndicator');
     if (!indicator) {
       indicator = document.createElement('div');
       indicator.id = 'mapIndicator';
-      indicator.style.cssText = `
-        position: absolute;
-        top: 10px;
-        left: 10px;
-        background: rgba(31, 122, 140, 0.9);
-        color: white;
-        padding: 8px 12px;
-        border-radius: 4px;
-        font-size: 12px;
-        font-weight: 500;
-        z-index: 1000;
-        pointer-events: none;
-      `;
+      indicator.style.cssText =
+        'position: absolute; top: 10px; left: 10px; background: rgba(31, 122, 140, 0.9); ' +
+        'color: white; padding: 8px 12px; border-radius: 4px; font-size: 12px; font-weight: 500; ' +
+        'z-index: 1000; pointer-events: none;';
       mapContainer.style.position = 'relative';
       mapContainer.appendChild(indicator);
     }
-    
-    indicator.textContent = `${statesWithData.length} state${statesWithData.length !== 1 ? 's' : ''} selected`;
+    indicator.textContent = 'PAN India selected';
+    indicator.style.display = 'block';
+    return;
+  }
+
+  // Special case: if Unspecified geography is selected, do nothing
+  if (canonicalStates.includes('Unspecified geography')) {
+    const indicator = document.getElementById('mapIndicator');
+    if (indicator) indicator.style.display = 'none';
+    return;
+  }
+
+  // Determine which paths to highlight by matching 'name' attributes
+  let highlightedCount = 0;
+  canonicalStates.forEach(stateName => {
+    const matchingPaths = mapContainer.querySelectorAll(`path[name="${stateName.replace(/"/g, '\\"')}"]`);
+    matchingPaths.forEach(path => {
+      path.style.fill = '#1f7a8c';
+      path.style.stroke = '#0d5561';
+      path.style.strokeWidth = '2';
+      path.classList.add('state-selected');
+      highlightedCount += 1;
+    });
+  });
+
+  // Update indicator: number of states highlighted
+  let indicator = document.getElementById('mapIndicator');
+  if (highlightedCount > 0) {
+    if (!indicator) {
+      indicator = document.createElement('div');
+      indicator.id = 'mapIndicator';
+      indicator.style.cssText =
+        'position: absolute; top: 10px; left: 10px; background: rgba(31, 122, 140, 0.9); ' +
+        'color: white; padding: 8px 12px; border-radius: 4px; font-size: 12px; font-weight: 500; ' +
+        'z-index: 1000; pointer-events: none;';
+      mapContainer.style.position = 'relative';
+      mapContainer.appendChild(indicator);
+    }
+    const uniqueStates = [...new Set(canonicalStates)];
+    indicator.textContent = `${uniqueStates.length} ${uniqueStates.length === 1 ? 'state' : 'states'} selected`;
     indicator.style.display = 'block';
   } else {
-    // Hide indicator if no states with data
-    const indicator = document.getElementById('mapIndicator');
-    if (indicator) {
-      indicator.style.display = 'none';
-    }
+    if (indicator) indicator.style.display = 'none';
   }
 }
 
