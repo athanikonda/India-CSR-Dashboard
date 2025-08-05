@@ -2533,3 +2533,42 @@ select.form-control {
     transform: translateY(0);
   }
 }
+
+/* Map state highlighting - Fixed version */
+#indiaMap path {
+  fill: #7FB069; /* Default green color as shown in your image */
+  stroke: #fff;
+  stroke-width: 1;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+#indiaMap path:hover {
+  stroke: #333;
+  stroke-width: 2;
+  filter: brightness(0.9);
+}
+
+/* Selected state highlighting */
+.state-selected {
+  fill: #1f7a8c !important;
+  stroke: #0d5561 !important;
+  stroke-width: 2 !important;
+}
+
+/* Chart watermark styling */
+.chart-container {
+  position: relative;
+}
+
+.chart-watermark {
+  position: absolute;
+  bottom: 10px;
+  right: 15px;
+  font-size: 10px;
+  color: rgba(0, 0, 0, 0.1);
+  font-weight: 500;
+  z-index: 1000;
+  pointer-events: none;
+  font-family: var(--font-family-base);
+}
