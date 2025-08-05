@@ -1,4 +1,4 @@
-// app.js (Fully Revised CSR Dashboard)
+// app.js (Fully Revised CSR Dashboard with All Fixes)
 // Last updated: Tue Aug 05, 2025
 
 console.log("Initializing dashboard...");
@@ -9,6 +9,13 @@ let rawData = [];
 let filteredData = [];
 let currentPage = 1;
 const rowsPerPage = 50;
+
+// Chart instances to properly destroy/recreate
+let overviewStatesChartInstance = null;
+let overviewSectorsChartInstance = null;
+let statesChartInstance = null;
+let sectorsChartInstance = null;
+let companiesChartInstance = null;
 
 document.addEventListener("DOMContentLoaded", async () => {
   await loadFullDataset();
@@ -43,6 +50,7 @@ async function loadFullDataset() {
           filteredData = [...rawData];
           
           console.log("Dataset loaded:", filteredData.length, "records");
+          console.log("Sample spending values:", rawData.slice(0, 5).map(r => r["Total Spending (₹ Cr)"]));
           resolve();
         },
         error: function (err) {
@@ -69,6 +77,9 @@ function initializeTabs() {
       tab.classList.add("active");
       const target = document.getElementById(tab.dataset.tab);
       if (target) target.classList.add("active");
+      
+      // Update charts when switching tabs
+      setTimeout(() => updateCharts(), 100);
     });
   });
 
@@ -84,9 +95,9 @@ function initializeFilters() {
   const typeSet = new Set();
 
   rawData.forEach(row => {
-    if (row['CSR State']) stateSet.add(row['CSR State'].trim());
-    if (row['CSR Development Sector']) sectorSet.add(row['CSR Development Sector'].trim());
-    if (row['PSU/Non-PSU']) typeSet.add(row['PSU/Non-PSU'].trim());
+    if (row['CSR State'] && row['CSR State'].trim()) stateSet.add(row['CSR State'].trim());
+    if (row['CSR Development Sector'] && row['CSR Development Sector'].trim()) sectorSet.add(row['CSR Development Sector'].trim());
+    if (row['PSU/Non-PSU'] && row['PSU/Non-PSU'].trim()) typeSet.add(row['PSU/Non-PSU'].trim());
   });
 
   populateMultiSelect("stateFilter", [...stateSet].sort());
@@ -97,13 +108,21 @@ function initializeFilters() {
 function populateMultiSelect(selectId, items) {
   const select = document.getElementById(selectId);
   if (!select) return;
-  
+
   select.innerHTML = '';
+  
+  // Add "All" option
+  const allOption = document.createElement("option");
+  allOption.value = "__ALL__";
+  allOption.text = "All";
+  allOption.selected = true;
+  select.appendChild(allOption);
+
   items.forEach(item => {
     const option = document.createElement("option");
     option.value = item;
     option.text = item;
-    option.selected = true;
+    option.selected = false; // Only "All" is selected by default
     select.appendChild(option);
   });
 }
@@ -135,10 +154,15 @@ function applyFilters() {
   const psuFilter = Array.from(document.getElementById('psuFilter')?.selectedOptions || []).map(o => o.value);
   const companySearch = document.getElementById('companySearch')?.value.toLowerCase() || '';
 
+  // Check if "All" is selected for each filter
+  const showAllStates = stateFilter.includes("__ALL__");
+  const showAllSectors = sectorFilter.includes("__ALL__");
+  const showAllPSU = psuFilter.includes("__ALL__");
+
   filteredData = rawData.filter(row => {
-    const stateMatch = stateFilter.length === 0 || stateFilter.includes(row['CSR State']);
-    const sectorMatch = sectorFilter.length === 0 || sectorFilter.includes(row['CSR Development Sector']);
-    const psuMatch = psuFilter.length === 0 || psuFilter.includes(row['PSU/Non-PSU']);
+    const stateMatch = showAllStates || stateFilter.includes(row['CSR State']);
+    const sectorMatch = showAllSectors || sectorFilter.includes(row['CSR Development Sector']);
+    const psuMatch = showAllPSU || psuFilter.includes(row['PSU/Non-PSU']);
     const companyMatch = !companySearch || row['Company Name']?.toLowerCase().includes(companySearch);
     
     return stateMatch && sectorMatch && psuMatch && companyMatch;
@@ -150,10 +174,18 @@ function applyFilters() {
 }
 
 function resetFilters() {
-  document.getElementById('stateFilter')?.querySelectorAll('option').forEach(o => o.selected = true);
-  document.getElementById('sectorFilter')?.querySelectorAll('option').forEach(o => o.selected = true);
-  document.getElementById('psuFilter')?.querySelectorAll('option').forEach(o => o.selected = true);
-  document.getElementById('companySearch').value = '';
+  // Reset all filters to "All" selected only
+  ['stateFilter', 'sectorFilter', 'psuFilter'].forEach(filterId => {
+    const select = document.getElementById(filterId);
+    if (select) {
+      Array.from(select.options).forEach(option => {
+        option.selected = option.value === "__ALL__";
+      });
+    }
+  });
+  
+  const companySearch = document.getElementById('companySearch');
+  if (companySearch) companySearch.value = '';
   
   filteredData = [...rawData];
   currentPage = 1;
@@ -174,6 +206,16 @@ function updateFilterResults() {
   }
 }
 
+function parseSpending(value) {
+  if (!value || value === null || value === undefined) return 0;
+  
+  // Convert to string and remove all non-numeric characters except decimal point
+  const cleanValue = value.toString().replace(/[^0-9.-]/g, '');
+  const parsed = parseFloat(cleanValue);
+  
+  return isNaN(parsed) ? 0 : parsed;
+}
+
 function updateDashboard() {
   // Hide loading overlay and show dashboard
   const loadingIndicator = document.getElementById('loadingIndicator');
@@ -182,16 +224,23 @@ function updateDashboard() {
   const mainDashboard = document.getElementById('mainDashboard');
   if (mainDashboard) mainDashboard.style.display = 'block';
 
-  // Calculate metrics
+  // Calculate metrics with robust parsing
   const totalSpending = filteredData.reduce((sum, row) => {
-    const val = parseFloat((row["Total Spending (₹ Cr)"] || "0").toString().replace(/[^0-9.]/g, ""));
-    return sum + (isNaN(val) ? 0 : val);
+    return sum + parseSpending(row["Total Spending (₹ Cr)"]);
   }, 0);
 
-  const companies = new Set(filteredData.map(r => r['Company Name']));
-  const states = new Set(filteredData.map(r => r['CSR State']));
+  const companies = new Set(filteredData.map(r => r['Company Name']).filter(name => name && name.trim()));
+  const states = new Set(filteredData.map(r => r['CSR State']).filter(state => state && state.trim()));
   const totalProjects = filteredData.length;
   const avgPerProject = totalProjects > 0 ? totalSpending / totalProjects : 0;
+
+  console.log("DEBUG: Calculated metrics:", {
+    totalSpending,
+    totalCompanies: companies.size,
+    totalStates: states.size,
+    totalProjects,
+    avgPerProject
+  });
 
   // Update header stats
   updateElement('totalCompaniesHeader', `${companies.size} Companies`);
@@ -210,7 +259,7 @@ function updateDashboard() {
   updateSectorsTable();
   updateCompaniesTable();
   
-  // Update charts (placeholder - you can implement actual charts here)
+  // Update charts
   updateCharts();
 
   console.log("Dashboard updated with filtered data:", filteredData.length, "records");
@@ -274,7 +323,7 @@ function updateCompaniesTable() {
     <tr>
       <td class="number">${startIndex + index + 1}</td>
       <td>${company.name}</td>
-      <td><span class="psu-type ${company.psuType.toLowerCase().replace('-', '')}">${company.psuType}</span></td>
+      <td><span class="psu-type ${company.psuType.toLowerCase().replace(/[^a-z]/g, '')}">${company.psuType}</span></td>
       <td>${company.state}</td>
       <td>${company.sector}</td>
       <td class="number">₹${company.spending.toLocaleString('en-IN', {maximumFractionDigits: 2})}</td>
@@ -289,14 +338,13 @@ function updateCompaniesTable() {
 function calculateStateData() {
   const stateMap = new Map();
   const totalSpending = filteredData.reduce((sum, row) => {
-    const spending = parseFloat((row["Total Spending (₹ Cr)"] || "0").toString().replace(/[^0-9.]/g, ""));
-    return sum + (isNaN(spending) ? 0 : spending);
+    return sum + parseSpending(row["Total Spending (₹ Cr)"]);
   }, 0);
 
   filteredData.forEach(row => {
-    const state = row['CSR State'] || 'Unknown';
-    const spending = parseFloat((row["Total Spending (₹ Cr)"] || "0").toString().replace(/[^0-9.]/g, ""));
-    const company = row['Company Name'];
+    const state = row['CSR State']?.trim() || 'Unknown';
+    const spending = parseSpending(row["Total Spending (₹ Cr)"]);
+    const company = row['Company Name']?.trim();
 
     if (!stateMap.has(state)) {
       stateMap.set(state, {
@@ -308,7 +356,7 @@ function calculateStateData() {
     }
 
     const stateData = stateMap.get(state);
-    stateData.spending += isNaN(spending) ? 0 : spending;
+    stateData.spending += spending;
     stateData.projects += 1;
     if (company) stateData.companies.add(company);
   });
@@ -326,14 +374,13 @@ function calculateStateData() {
 function calculateSectorData() {
   const sectorMap = new Map();
   const totalSpending = filteredData.reduce((sum, row) => {
-    const spending = parseFloat((row["Total Spending (₹ Cr)"] || "0").toString().replace(/[^0-9.]/g, ""));
-    return sum + (isNaN(spending) ? 0 : spending);
+    return sum + parseSpending(row["Total Spending (₹ Cr)"]);
   }, 0);
 
   filteredData.forEach(row => {
-    const sector = row['CSR Development Sector'] || 'Unknown';
-    const spending = parseFloat((row["Total Spending (₹ Cr)"] || "0").toString().replace(/[^0-9.]/g, ""));
-    const company = row['Company Name'];
+    const sector = row['CSR Development Sector']?.trim() || 'Unknown';
+    const spending = parseSpending(row["Total Spending (₹ Cr)"]);
+    const company = row['Company Name']?.trim();
 
     if (!sectorMap.has(sector)) {
       sectorMap.set(sector, {
@@ -345,7 +392,7 @@ function calculateSectorData() {
     }
 
     const sectorData = sectorMap.get(sector);
-    sectorData.spending += isNaN(spending) ? 0 : spending;
+    sectorData.spending += spending;
     sectorData.projects += 1;
     if (company) sectorData.companies.add(company);
   });
@@ -363,24 +410,24 @@ function calculateCompanyData() {
   const companyMap = new Map();
 
   filteredData.forEach(row => {
-    const company = row['Company Name'];
+    const company = row['Company Name']?.trim();
     if (!company) return;
 
-    const spending = parseFloat((row["Total Spending (₹ Cr)"] || "0").toString().replace(/[^0-9.]/g, ""));
+    const spending = parseSpending(row["Total Spending (₹ Cr)"]);
 
     if (!companyMap.has(company)) {
       companyMap.set(company, {
         name: company,
         spending: 0,
         projects: 0,
-        psuType: row['PSU/Non-PSU'] || 'Unknown',
-        state: row['CSR State'] || 'Unknown',
-        sector: row['CSR Development Sector'] || 'Unknown'
+        psuType: row['PSU/Non-PSU']?.trim() || 'Unknown',
+        state: row['CSR State']?.trim() || 'Unknown',
+        sector: row['CSR Development Sector']?.trim() || 'Unknown'
       });
     }
 
     const companyData = companyMap.get(company);
-    companyData.spending += isNaN(spending) ? 0 : spending;
+    companyData.spending += spending;
     companyData.projects += 1;
   });
 
@@ -411,9 +458,91 @@ function changePage(direction) {
 }
 
 function updateCharts() {
-  // Placeholder for chart updates
-  // You can implement Chart.js charts here using the calculated data
-  console.log("Charts would be updated here with current filtered data");
+  if (typeof Chart === 'undefined') {
+    console.log("Chart.js not loaded, skipping chart updates");
+    return;
+  }
+
+  const statesData = calculateStateData();
+  const sectorsData = calculateSectorData();
+  const companiesData = calculateCompanyData();
+
+  // Update Overview States Chart
+  updateBarChart('overviewStatesChart', 'overviewStatesChartInstance', 
+    statesData.slice(0, 15), 'Top 15 States by CSR Spending', '#1f7a8c');
+
+  // Update Overview Sectors Chart  
+  updateBarChart('overviewSectorsChart', 'overviewSectorsChartInstance',
+    sectorsData.slice(0, 10), 'Top Development Sectors', '#ff6b35');
+
+  // Update States Chart (full data)
+  updateBarChart('statesChart', 'statesChartInstance',
+    statesData, 'All States by CSR Spending', '#1f7a8c');
+
+  // Update Sectors Chart (full data)
+  updateBarChart('sectorsChart', 'sectorsChartInstance',
+    sectorsData, 'All Development Sectors', '#ff6b35');
+
+  // Update Companies Chart
+  updateBarChart('companiesChart', 'companiesChartInstance',
+    companiesData.slice(0, 20), 'Top 20 Companies by CSR Spending', '#084c61');
+}
+
+function updateBarChart(canvasId, instanceVar, data, title, color) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+
+  // Destroy existing chart instance
+  if (window[instanceVar]) {
+    window[instanceVar].destroy();
+  }
+
+  const ctx = canvas.getContext('2d');
+  const labels = data.map(item => item.name);
+  const values = data.map(item => item.spending);
+
+  window[instanceVar] = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'CSR Spending (₹ Cr)',
+        data: values,
+        backgroundColor: color,
+        borderColor: color,
+        borderWidth: 1
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        title: {
+          display: true,
+          text: title
+        },
+        legend: {
+          display: false
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: {
+            callback: function(value) {
+              return '₹' + value.toLocaleString('en-IN');
+            }
+          }
+        },
+        x: {
+          ticks: {
+            maxRotation: 45,
+            minRotation: 0
+          }
+        }
+      }
+    }
+  });
 }
 
 // Export functions
