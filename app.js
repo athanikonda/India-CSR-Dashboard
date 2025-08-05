@@ -750,52 +750,7 @@ function updateBarChart(canvasId, instanceVar, data, title, color) {
   const labels = data.map(item => item.name);
   const values = data.map(item => item.spending);
 
-  window[instanceVar] = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: labels,
-      datasets: [{
-        label: 'CSR Spending (₹ Cr)',
-        data: values,
-        backgroundColor: color,
-        borderColor: color,
-        borderWidth: 1
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        title: {
-          display: true,
-          text: title
-        },
-        legend: {
-          display: false
-        }
-      },
-      scales: {
-        y: {
-          beginAtZero: true,
-          ticks: {
-            callback: function(value) {
-              return '₹' + value.toLocaleString('en-IN');
-            }
-          }
-        },
-        x: {
-          ticks: {
-            maxRotation: 45,
-            minRotation: 0
-          }
-        }
-      },
-      // Add watermark plugin
-      onAnimationComplete: function() {
-        addWatermarkToChart(ctx, canvas);
-      }
-    }
-  });
+  window[instanceVar] = new Chart(ctx, getEnhancedChartConfig(labels, data, chartTitle));
   
   // Add watermark immediately after chart creation
   setTimeout(() => {
