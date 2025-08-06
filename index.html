@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>India CSR Spending Dashboard - FY 2023-24 (Complete Dataset)</title>
     <link rel="stylesheet" href="style.css">
+    <!-- Chart.js and datalabels plugin -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
@@ -109,7 +109,7 @@
                             </div>
                         </div>
                         <div class="metric-card">
-                            <div class="metric-icon">📋</div>
+                            <div the metric-icon">📋</div>
                             <div class="metric-content">
                                 <h3 class="metric-value" id="totalProjectsMetric">Loading...</h3>
                                 <p class="metric-label">Total Projects</p>
@@ -317,6 +317,7 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <!-- Load the revised app script -->
     <script src="app.js"></script>
     <div id="company-list"></div>
     <div id="pagination-controls"></div>
