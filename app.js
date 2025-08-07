@@ -355,6 +355,7 @@ function initializeEventListeners() {
   document.getElementById('exportSectorsData')?.addEventListener('click', exportSectorsData);
   document.getElementById('exportCompaniesData')?.addEventListener('click', exportCompaniesData);
   document.getElementById('exportMapData')?.addEventListener('click', exportMapData);
+  document.getElementById('exportMapImage')?.addEventListener('click', exportMapAsImage);
   initializeChartDownloads();
 }
 
@@ -907,6 +908,181 @@ function labelSelectedStatesWithValues(selectedStates, filteredData) {
       svg.appendChild(text);
     }
   });
+}
+
+// Enhanced function to export the complete map as PNG with all visual elements
+async function exportMapAsImage() {
+  try {
+    const mapContainer = document.querySelector('#indiaMap');
+    if (!mapContainer) {
+      alert('Map not found');
+      return;
+    }
+
+    const svgElement = mapContainer.querySelector('svg');
+    if (!svgElement) {
+      alert('SVG map not loaded');
+      return;
+    }
+
+    // Create a new SVG for export with enhanced layout
+    const exportSvg = svgElement.cloneNode(true);
+    const svgWidth = 1200;
+    const svgHeight = 1000;
+    
+    // Set up the export SVG dimensions
+    exportSvg.setAttribute('width', svgWidth);
+    exportSvg.setAttribute('height', svgHeight);
+    exportSvg.setAttribute('viewBox', `0 0 ${svgWidth} ${svgHeight}`);
+    exportSvg.style.background = '#f8f9fa';
+
+    // Add title to the SVG
+    const titleText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    titleText.setAttribute('x', svgWidth / 2);
+    titleText.setAttribute('y', 40);
+    titleText.setAttribute('text-anchor', 'middle');
+    titleText.setAttribute('font-family', 'Arial, sans-serif');
+    titleText.setAttribute('font-size', '24');
+    titleText.setAttribute('font-weight', 'bold');
+    titleText.setAttribute('fill', '#2c3e50');
+    titleText.textContent = 'India CSR Spending Distribution by State/Union Territory';
+    exportSvg.appendChild(titleText);
+
+    // Add subtitle with filters
+    const filtersSummary = getSelectedFiltersSummary();
+    const subtitleText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    subtitleText.setAttribute('x', svgWidth / 2);
+    subtitleText.setAttribute('y', 65);
+    subtitleText.setAttribute('text-anchor', 'middle');
+    subtitleText.setAttribute('font-family', 'Arial, sans-serif');
+    subtitleText.setAttribute('font-size', '14');
+    subtitleText.setAttribute('font-style', 'italic');
+    subtitleText.setAttribute('fill', '#6c757d');
+    subtitleText.textContent = 'India CSR Spending Dashboard | FY 2023-24' + (filtersSummary ? ' | ' + filtersSummary : '');
+    exportSvg.appendChild(subtitleText);
+
+    // Add watermark
+    const watermarkText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    watermarkText.setAttribute('x', svgWidth - 20);
+    watermarkText.setAttribute('y', svgHeight - 20);
+    watermarkText.setAttribute('text-anchor', 'end');
+    watermarkText.setAttribute('font-family', 'Arial, sans-serif');
+    watermarkText.setAttribute('font-size', '12');
+    watermarkText.setAttribute('font-style', 'italic');
+    watermarkText.setAttribute('fill', 'rgba(0,0,0,0.4)');
+    watermarkText.textContent = 'Prepared by Ashok Thanikonda';
+    exportSvg.appendChild(watermarkText);
+
+    // Transform existing map content to fit in the available space
+    const mapGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    mapGroup.setAttribute('transform', 'translate(100, 90) scale(0.8)');
+    
+    // Move all existing map elements to the group
+    const existingPaths = Array.from(exportSvg.children).filter(child => 
+      child.tagName === 'path' || child.tagName === 'g'
+    );
+    existingPaths.forEach(element => {
+      mapGroup.appendChild(element);
+    });
+    
+    // Move existing labels to the group
+    const existingLabels = Array.from(exportSvg.querySelectorAll('.map-label'));
+    existingLabels.forEach(label => {
+      mapGroup.appendChild(label);
+    });
+
+    exportSvg.appendChild(mapGroup);
+
+    // Add legend/summary box
+    const legendGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    
+    // Legend background
+    const legendBg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    legendBg.setAttribute('x', 50);
+    legendBg.setAttribute('y', svgHeight - 150);
+    legendBg.setAttribute('width', 300);
+    legendBg.setAttribute('height', 120);
+    legendBg.setAttribute('fill', 'rgba(255, 255, 255, 0.9)');
+    legendBg.setAttribute('stroke', '#dee2e6');
+    legendBg.setAttribute('stroke-width', '1');
+    legendBg.setAttribute('rx', '8');
+    legendGroup.appendChild(legendBg);
+
+    // Legend title
+    const legendTitle = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    legendTitle.setAttribute('x', 60);
+    legendTitle.setAttribute('y', svgHeight - 125);
+    legendTitle.setAttribute('font-family', 'Arial, sans-serif');
+    legendTitle.setAttribute('font-size', '14');
+    legendTitle.setAttribute('font-weight', 'bold');
+    legendTitle.setAttribute('fill', '#2c3e50');
+    legendTitle.textContent = 'Summary Statistics';
+    legendGroup.appendChild(legendTitle);
+
+    // Add summary statistics
+    const totalSpending = filteredData.reduce((sum, row) => sum + parseSpending(row["Project Amount Spent (In INR Cr.)"]), 0);
+    const totalCompanies = new Set(filteredData.map(r => r['Company Name']).filter(name => name && name.trim())).size;
+    const totalProjects = filteredData.length;
+    const statesCount = new Set(filteredData.map(r => canonicalStateName(r['CSR State'])).filter(state => state && state !== 'Unknown')).size;
+
+    const summaryLines = [
+      `Total Spending: ₹${totalSpending.toLocaleString('en-IN', {maximumFractionDigits: 2})} Cr`,
+      `Companies: ${totalCompanies.toLocaleString('en-IN')}`,
+      `Projects: ${totalProjects.toLocaleString('en-IN')}`,
+      `States/UTs: ${statesCount}`
+    ];
+
+    summaryLines.forEach((line, index) => {
+      const summaryText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      summaryText.setAttribute('x', 60);
+      summaryText.setAttribute('y', svgHeight - 105 + (index * 18));
+      summaryText.setAttribute('font-family', 'Arial, sans-serif');
+      summaryText.setAttribute('font-size', '12');
+      summaryText.setAttribute('fill', '#495057');
+      summaryText.textContent = line;
+      legendGroup.appendChild(summaryText);
+    });
+
+    exportSvg.appendChild(legendGroup);
+
+    // Convert SVG to PNG
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = svgWidth;
+    canvas.height = svgHeight;
+
+    // Create a blob from SVG
+    const svgData = new XMLSerializer().serializeToString(exportSvg);
+    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(svgBlob);
+
+    // Create image and draw to canvas
+    const img = new Image();
+    img.onload = function() {
+      ctx.fillStyle = '#f8f9fa';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0);
+      
+      // Download the image
+      const link = document.createElement('a');
+      link.download = `india-csr-spending-map-${new Date().toISOString().split('T')[0]}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+      
+      URL.revokeObjectURL(url);
+    };
+    
+    img.onerror = function() {
+      console.error('Failed to load SVG image');
+      alert('Failed to export map. Please try again.');
+    };
+    
+    img.src = url;
+
+  } catch (error) {
+    console.error('Error exporting map:', error);
+    alert('Failed to export map. Please try again.');
+  }
 }
 
 console.log("Enhanced dashboard script loaded successfully");
