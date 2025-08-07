@@ -38,7 +38,7 @@ const customWatermark = {
     ctx.font = '12px Arial';
     ctx.textAlign = 'right';
     ctx.textBaseline = 'bottom';
-    ctx.fillText('Prepared by Ashok Thanikonda', width - 10, height /2);
+    ctx.fillText('Prepared by Ashok Thanikonda', width - 10, height - 10);
     ctx.restore();
   }
 };
@@ -215,6 +215,26 @@ function handleMapClick(event) {
   }
 }
 
+// Update map title and subtitle based on filters
+function updateMapDisplay() {
+  const filtersSummary = getSelectedFiltersSummary();
+  const mapTitle = document.getElementById('mapTitle');
+  const mapSubtitle = document.getElementById('mapSubtitle');
+  const mapFiltersSummary = document.getElementById('mapFiltersSummary');
+  
+  if (mapTitle) {
+    mapTitle.textContent = 'India CSR Spending Distribution by State/Union Territory';
+  }
+  
+  if (mapSubtitle) {
+    mapSubtitle.textContent = 'India CSR Spending Dashboard | FY 2023-24' + (filtersSummary ? ' | ' + filtersSummary : '');
+  }
+  
+  if (mapFiltersSummary) {
+    mapFiltersSummary.textContent = filtersSummary || 'None';
+  }
+}
+
 // State highlighting
 function highlightMapStates(canon) {
   const svgContainer = document.querySelector('#indiaMap');
@@ -255,11 +275,33 @@ function initializeTabs() {
       tab.classList.add("active");
       const target = document.getElementById(tab.dataset.tab);
       if (target) target.classList.add("active");
+      
+      // Update map display when map tab is selected
+      if (tab.dataset.tab === 'map') {
+        setTimeout(() => {
+          updateMapDisplay();
+          const selectedStates = getSelectedStates();
+          labelSelectedStatesWithValues(selectedStates, filteredData);
+        }, 100);
+      }
+      
       setTimeout(() => updateCharts(), 100);
     });
   });
   if (tabs.length > 0) {
     tabs[0].click();
+  }
+}
+
+function getSelectedStates() {
+  const stateFilter = document.getElementById('stateFilter');
+  const showAllStates = Array.from(stateFilter?.selectedOptions || []).map(o => o.value).includes("__ALL__");
+  if (showAllStates) {
+    return Array.from(new Set(rawData.map(r => canonicalStateName(r['CSR State']))));
+  } else {
+    return Array.from(stateFilter?.selectedOptions || [])
+      .map(o => o.value)
+      .filter(v => v !== "__ALL__");
   }
 }
 
@@ -312,6 +354,7 @@ function initializeEventListeners() {
   document.getElementById('exportStatesData')?.addEventListener('click', exportStatesData);
   document.getElementById('exportSectorsData')?.addEventListener('click', exportSectorsData);
   document.getElementById('exportCompaniesData')?.addEventListener('click', exportCompaniesData);
+  document.getElementById('exportMapData')?.addEventListener('click', exportMapData);
   initializeChartDownloads();
 }
 
@@ -379,7 +422,8 @@ function applyFilters() {
   updateFilterResults();
   const selectedStates = showAllStates ? Array.from(new Set(rawData.map(r => canonicalStateName(r['CSR State'])))) : stateFilter.filter(s => s !== "__ALL__");
   highlightMapStates(selectedStates);
-  // Update map value labels
+  // Update map value labels and display
+  updateMapDisplay();
   labelSelectedStatesWithValues(selectedStates, filteredData);
 }
 
@@ -399,7 +443,8 @@ function resetFilters() {
   updateDashboard();
   updateFilterResults();
   highlightMapStates([]);
-  // Clear map labels
+  // Clear map labels and update display
+  updateMapDisplay();
   labelSelectedStatesWithValues([], []);
 }
 
@@ -618,7 +663,7 @@ function updateCharts() {
   updateBarChart('companiesChart', 'companiesChartInstance', companiesData.slice(0, 20), 'CSR Spending Rankings: Top 20 Companies (Curated List)', '#084c61');
 }
 
-// Enhanced bar chart update: includes watermark, subtitles and datalabels
+// Enhanced bar chart update: includes watermark, subtitles and datalabels (without "Cr" in data labels)
 function updateBarChart(canvasId, instanceVar, data, title, color) {
   const canvas = document.getElementById(canvasId);
   if (!canvas) return;
@@ -659,9 +704,13 @@ function updateBarChart(canvasId, instanceVar, data, title, color) {
           align: 'end',
           color: '#000',
           formatter: function(value) {
-            return '₹' + value.toLocaleString('en-IN', { maximumFractionDigits: 2 }) + ' Cr';
+            return '₹' + value.toLocaleString('en-IN', { maximumFractionDigits: 2 });
           },
-          font: { weight: 'bold' }
+          font: { 
+            weight: 'bold',
+            size: 10 
+          },
+          rotation: 0
         }
       },
       scales: {
@@ -726,6 +775,23 @@ function exportCompaniesData() {
   }));
   exportToCSV(csvData, 'companies_analysis.csv');
 }
+
+// New: Export map data functionality
+function exportMapData() {
+  const statesData = calculateStateData();
+  const filtersSummary = getSelectedFiltersSummary();
+  const csvData = statesData.map(state => ({
+    'State/Union Territory': state.name,
+    'Total CSR Spending (₹ Cr)': state.spending,
+    'Number of Projects': state.projects,
+    'Number of Companies': state.companies,
+    'Average per Project (₹ Cr)': state.average,
+    'Percentage of Total': state.percentage,
+    'Applied Filters': filtersSummary || 'None'
+  }));
+  exportToCSV(csvData, 'india_map_csr_data.csv');
+}
+
 function exportToCSV(data, filename) {
   if (!data.length) return;
   const csv = Papa.unparse(data);
@@ -742,7 +808,7 @@ function exportToCSV(data, filename) {
   }
 }
 
-// Map coordinate positions for value labels
+// Map coordinate positions for value labels (optimized for readability)
 const stateCoordinates = {
   "Andhra Pradesh": [580, 620],
   "Arunachal Pradesh": [950, 260],
@@ -782,32 +848,62 @@ const stateCoordinates = {
   "Puducherry": [600, 850]
 };
 
-// Display spending value labels on selected states
+// Enhanced function to display spending value labels on selected states (with improved readability)
 function labelSelectedStatesWithValues(selectedStates, filteredData) {
   const svg = document.getElementById("indiaMap");
   if (!svg) return;
+  
   // Remove old labels
   svg.querySelectorAll('.map-label').forEach(e => e.remove());
+  
+  if (!selectedStates || selectedStates.length === 0) return;
+  
   const stateTotals = {};
   filteredData.forEach(row => {
     const state = canonicalStateName(row["CSR State"]);
     const amt = parseFloat(row["Project Amount Spent (In INR Cr.)"] || 0);
     stateTotals[state] = (stateTotals[state] || 0) + amt;
   });
-  selectedStates.forEach(state => {
+  
+  // Only show labels for states with significant spending (> 1 Cr) to avoid clutter
+  const significantStates = selectedStates.filter(state => 
+    stateTotals[state] && stateTotals[state] > 1
+  );
+  
+  // Limit to top 15 states by spending to avoid overcrowding
+  const topStates = significantStates
+    .sort((a, b) => (stateTotals[b] || 0) - (stateTotals[a] || 0))
+    .slice(0, 15);
+  
+  topStates.forEach(state => {
     const coords = stateCoordinates[state];
-    const val = stateTotals[state]?.toFixed(2);
-    if (coords && val) {
+    const val = stateTotals[state];
+    if (coords && val && val > 0) {
+      // Create background rectangle for better readability
+      const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      rect.setAttribute("x", coords[0] - 25);
+      rect.setAttribute("y", coords[1] - 10);
+      rect.setAttribute("width", 50);
+      rect.setAttribute("height", 16);
+      rect.setAttribute("class", "map-label");
+      rect.setAttribute("fill", "rgba(255, 255, 255, 0.8)");
+      rect.setAttribute("stroke", "#333");
+      rect.setAttribute("stroke-width", "0.5");
+      rect.setAttribute("rx", "3");
+      svg.appendChild(rect);
+      
+      // Create text label
       const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
       text.setAttribute("x", coords[0]);
-      text.setAttribute("y", coords[1]);
+      text.setAttribute("y", coords[1] + 3);
       text.setAttribute("class", "map-label");
       text.setAttribute("text-anchor", "middle");
-      text.setAttribute("font-size", "14");
+      text.setAttribute("font-size", "10");
+      text.setAttribute("font-weight", "bold");
       text.setAttribute("fill", "#333");
-      text.setAttribute("stroke", "white");
-      text.setAttribute("stroke-width", "0.5");
-      text.textContent = `₹${val} Cr`;
+      text.textContent = val >= 1000 ? 
+        `₹${(val/1000).toFixed(1)}K` : 
+        `₹${val.toFixed(0)}`;
       svg.appendChild(text);
     }
   });
