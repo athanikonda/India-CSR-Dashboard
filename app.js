@@ -82,6 +82,123 @@ function canonicalStateName(name) {
   return name.trim();
 }
 
+// Dynamic state coordinate detection
+function getStateCoordinates(stateElement) {
+  if (!stateElement) return null;
+  
+  try {
+    // Get bounding box of the state element
+    const bbox = stateElement.getBBox();
+    
+    // Calculate center point
+    const centerX = bbox.x + bbox.width / 2;
+    const centerY = bbox.y + bbox.height / 2;
+    
+    return [centerX, centerY];
+  } catch (error) {
+    console.warn('Could not get coordinates for state:', stateElement.id || stateElement.getAttribute('name'), error);
+    return null;
+  }
+}
+
+// Enhanced state name mapping that handles multiple possible ID formats
+function findStateElement(stateName, svgContainer) {
+  if (!svgContainer || !stateName) return null;
+  
+  const canonicalName = canonicalStateName(stateName);
+  
+  // Try multiple selector strategies
+  const selectors = [
+    `path[id="${canonicalName}"]`,
+    `path[name="${canonicalName}"]`,
+    `path[data-state="${canonicalName}"]`,
+    `g[id="${canonicalName}"]`,
+    `g[name="${canonicalName}"]`,
+    // Try variations with underscores and lowercase
+    `path[id="${canonicalName.replace(/\s+/g, '_')}"]`,
+    `path[id="${canonicalName.toLowerCase().replace(/\s+/g, '_')}"]`,
+    `path[id="${canonicalName.replace(/\s+/g, '')}"]`,
+    // Try partial matching
+    `path[id*="${canonicalName.split(' ')[0]}"]`,
+    `path[name*="${canonicalName.split(' ')[0]}"]`
+  ];
+  
+  for (const selector of selectors) {
+    try {
+      const element = svgContainer.querySelector(selector);
+      if (element) {
+        console.log(`Found state element for ${canonicalName} using selector: ${selector}`);
+        return element;
+      }
+    } catch (e) {
+      // Invalid selector, continue
+    }
+  }
+  
+  // If no direct match, try all path elements and compare text content or data attributes
+  const allPaths = svgContainer.querySelectorAll('path, g');
+  for (const path of allPaths) {
+    const pathId = path.id || '';
+    const pathName = path.getAttribute('name') || '';
+    const pathTitle = path.querySelector('title')?.textContent || '';
+    
+    if (pathId.toLowerCase().includes(canonicalName.toLowerCase()) ||
+        pathName.toLowerCase().includes(canonicalName.toLowerCase()) ||
+        pathTitle.toLowerCase().includes(canonicalName.toLowerCase())) {
+      console.log(`Found state element for ${canonicalName} by content matching:`, path.id || path.getAttribute('name'));
+      return path;
+    }
+  }
+  
+  console.warn(`Could not find SVG element for state: ${canonicalName}`);
+  return null;
+}
+
+// Debug function to inspect SVG structure
+function debugSVGStructure() {
+  const svgContainer = document.querySelector('#indiaMap');
+  if (!svgContainer) {
+    console.log('SVG container not found');
+    return;
+  }
+  
+  const svg = svgContainer.querySelector('svg');
+  if (!svg) {
+    console.log('SVG element not found');
+    return;
+  }
+  
+  console.log('SVG viewBox:', svg.getAttribute('viewBox'));
+  console.log('SVG width:', svg.getAttribute('width'));
+  console.log('SVG height:', svg.getAttribute('height'));
+  
+  const paths = svg.querySelectorAll('path');
+  const groups = svg.querySelectorAll('g');
+  
+  console.log(`Found ${paths.length} path elements and ${groups.length} group elements`);
+  
+  // Log first few path elements with their IDs
+  console.log('Sample path elements:');
+  Array.from(paths).slice(0, 10).forEach((path, index) => {
+    console.log(`Path ${index}:`, {
+      id: path.id,
+      name: path.getAttribute('name'),
+      'data-state': path.getAttribute('data-state'),
+      title: path.querySelector('title')?.textContent
+    });
+  });
+  
+  // Log group elements
+  console.log('Group elements:');
+  Array.from(groups).slice(0, 10).forEach((group, index) => {
+    console.log(`Group ${index}:`, {
+      id: group.id,
+      name: group.getAttribute('name'),
+      'data-state': group.getAttribute('data-state')
+    });
+  });
+}
+
 // Compute human readable label for number of states selected
 function formatStatesLabel(selectedStates) {
   const canonicalStates = new Set(selectedStates.map(canonicalStateName));
