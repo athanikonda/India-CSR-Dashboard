@@ -38,7 +38,7 @@ const customWatermark = {
     ctx.font = '12px Arial';
     ctx.textAlign = 'right';
     ctx.textBaseline = 'bottom';
-    ctx.fillText('Prepared by Ashok Thanikonda', width - 10, height - 10);
+    ctx.fillText('Prepared by Ashok Thanikonda', width - 10, height /2);
     ctx.restore();
   }
 };
