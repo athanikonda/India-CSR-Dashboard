@@ -17,14 +17,15 @@
    */
   function overrideLabelFunction() {
     // Guard against missing stateCoordinates or canonical helper
-    const coordsMap = window.stateCoordinates || {};
-    const canonical = window.canonicalStateName || function(n) { return n; };
     window.labelSelectedStatesWithValues = function(selectedStates, filteredData) {
       const svgContainer = document.getElementById('indiaMap');
       if (!svgContainer) return;
       const svg = svgContainer.querySelector('svg') || svgContainer;
       // Remove previous labels
       svg.querySelectorAll('.map-label').forEach(e => e.remove());
+      // Always pull the latest state coordinate map and canonical function
+      const coordsMap = window.stateCoordinates || {};
+      const canonical = typeof window.canonicalStateName === 'function' ? window.canonicalStateName : (n => n);
       // Sum spending per canonical state
       const stateTotals = {};
       filteredData.forEach(row => {
@@ -32,38 +33,32 @@
         const amount = parseFloat(row['Project Amount Spent (In INR Cr.)'] || 0);
         stateTotals[stateName] = (stateTotals[stateName] || 0) + amount;
       });
+      // Determine font family from CSS variables for consistency with UI
+      const rootStyles = getComputedStyle(document.documentElement);
+      const fontFamily = rootStyles.getPropertyValue('--font-family-base').trim() || 'Inter, sans-serif';
       // Create a label for each selected state
       selectedStates.forEach(state => {
         const coords = coordsMap[state];
         const totalVal = stateTotals[state];
         if (!coords || totalVal === undefined) return;
         const valueStr = totalVal.toFixed(2);
-        // Create a text element that directly overlays the state shape.  We
-        // deliberately increase the font sizes and adjust colours for
-        // improved contrast on both dark and light fills.  A dark stroke
-        // around white lettering ensures legibility regardless of the
-        // underlying map colour.  Each line is rendered via a tspan so
-        // that the state name sits above the value.
         const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
         text.setAttribute('x', coords[0]);
         text.setAttribute('y', coords[1]);
         text.setAttribute('class', 'map-label');
         text.setAttribute('text-anchor', 'middle');
-        // The parent element sets overall style; individual tspans
-        // inherit these values unless overridden.  We set fill to
-        // white and stroke to a dark teal colour with a heavier
-        // stroke‑width for better visibility.
         text.setAttribute('fill', '#ffffff');
         text.setAttribute('stroke', '#084c61');
         text.setAttribute('stroke-width', '1');
         text.setAttribute('font-weight', 'bold');
-        // Disable pointer events on labels so clicks pass through to map regions
         text.setAttribute('pointer-events', 'none');
+        text.setAttribute('font-family', fontFamily);
         // Name line
         const tspanName = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
         tspanName.setAttribute('x', coords[0]);
         tspanName.setAttribute('dy', '0');
-        tspanName.setAttribute('font-size', '14');
+        tspanName.setAttribute('font-size', rootStyles.getPropertyValue('--font-size-base').trim() || '14px');
+        tspanName.setAttribute('font-family', fontFamily);
         tspanName.textContent = state;
         text.appendChild(tspanName);
         // Value line
@@ -72,9 +67,9 @@
         // Move the value slightly below the name.  1.2em gives enough
         // spacing for larger fonts while keeping the label compact.
         tspanValue.setAttribute('dy', '1.2em');
-        tspanValue.setAttribute('font-size', '12');
-        // Normal weight for value to contrast against bold name
+        tspanValue.setAttribute('font-size', rootStyles.getPropertyValue('--font-size-sm').trim() || '12px');
         tspanValue.setAttribute('font-weight', 'normal');
+        tspanValue.setAttribute('font-family', fontFamily);
         tspanValue.textContent = `₹${valueStr} Cr`;
         text.appendChild(tspanValue);
         svg.appendChild(text);
@@ -201,8 +196,9 @@
       titleText.setAttribute('x', vbX + vbW / 2);
       titleText.setAttribute('y', vbY + 20);
       titleText.setAttribute('text-anchor', 'middle');
-      titleText.setAttribute('font-size', '18');
-      titleText.setAttribute('font-weight', '600');
+      titleText.setAttribute('font-size', rootStyles.getPropertyValue('--font-size-2xl').trim() || '20px');
+      titleText.setAttribute('font-weight', rootStyles.getPropertyValue('--font-weight-bold').trim() || '600');
+      titleText.setAttribute('font-family', rootStyles.getPropertyValue('--font-family-base').trim() || 'Inter, sans-serif');
       titleText.setAttribute('fill', textColor);
       titleText.textContent = titleStr;
       exportSvg.appendChild(titleText);
@@ -212,7 +208,8 @@
       subtitleText.setAttribute('x', vbX + vbW / 2);
       subtitleText.setAttribute('y', vbY + 38);
       subtitleText.setAttribute('text-anchor', 'middle');
-      subtitleText.setAttribute('font-size', '12');
+      subtitleText.setAttribute('font-size', rootStyles.getPropertyValue('--font-size-sm').trim() || '12px');
+      subtitleText.setAttribute('font-family', rootStyles.getPropertyValue('--font-family-base').trim() || 'Inter, sans-serif');
       subtitleText.setAttribute('fill', secondaryColor);
       subtitleText.textContent = subtitleStr;
       exportSvg.appendChild(subtitleText);
@@ -225,7 +222,8 @@
       filtersText.setAttribute('x', vbX + 10);
       filtersText.setAttribute('y', vbY + vbH + marginTop + marginBottom - 10);
       filtersText.setAttribute('text-anchor', 'start');
-      filtersText.setAttribute('font-size', '10');
+      filtersText.setAttribute('font-size', rootStyles.getPropertyValue('--font-size-xs').trim() || '11px');
+      filtersText.setAttribute('font-family', rootStyles.getPropertyValue('--font-family-base').trim() || 'Inter, sans-serif');
       filtersText.setAttribute('fill', secondaryColor);
       filtersText.textContent = filtersStr;
       exportSvg.appendChild(filtersText);
@@ -236,7 +234,8 @@
       watermarkText.setAttribute('x', vbX + vbW - 10);
       watermarkText.setAttribute('y', vbY + vbH + marginTop + marginBottom - 10);
       watermarkText.setAttribute('text-anchor', 'end');
-      watermarkText.setAttribute('font-size', '8');
+      watermarkText.setAttribute('font-size', rootStyles.getPropertyValue('--font-size-xs').trim() || '11px');
+      watermarkText.setAttribute('font-family', rootStyles.getPropertyValue('--font-family-base').trim() || 'Inter, sans-serif');
       watermarkText.setAttribute('fill', secondaryColor);
       watermarkText.setAttribute('opacity', '0.5');
       watermarkText.textContent = 'Prepared by Ashok Thanikonda';
