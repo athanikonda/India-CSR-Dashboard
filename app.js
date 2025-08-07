@@ -279,12 +279,21 @@ async function loadIndiaMap() {
     const mapContainer = document.querySelector('#indiaMap');
     if (mapContainer) {
       mapContainer.innerHTML = svgText;
+      
+      // Debug the SVG structure after loading
+      setTimeout(() => {
+        console.log('=== SVG STRUCTURE DEBUG ===');
+        debugSVGStructure();
+      }, 100);
+      
       const statePaths = mapContainer.querySelectorAll('path, g[id]');
       statePaths.forEach(path => {
         path.addEventListener('mouseenter', handleMapHover);
         path.addEventListener('mouseleave', handleMapLeave);
         path.addEventListener('click', handleMapClick);
       });
+      
+      console.log(`Loaded SVG map with ${statePaths.length} interactive elements`);
     }
   } catch (error) {
     console.error("Error loading India map:", error);
@@ -353,32 +362,66 @@ function updateMapDisplay() {
 }
 
 // State highlighting
-function highlightMapStates(canon) {
+function highlightMapStates(selectedStates) {
   const svgContainer = document.querySelector('#indiaMap');
-  if (!svgContainer || !canon || canon.length === 0) return;
-  const paths = svgContainer.querySelectorAll('path');
-  paths.forEach(p => {
-    p.style.fill = '#7FB069';
+  if (!svgContainer) {
+    console.error('SVG container not found for highlighting');
+    return;
+  }
+  
+  const svg = svgContainer.querySelector('svg');
+  if (!svg) {
+    console.error('SVG element not found for highlighting');
+    return;
+  }
+  
+  // Reset all paths to default color
+  const allPaths = svg.querySelectorAll('path');
+  allPaths.forEach(p => {
+    p.style.fill = '#7FB069'; // Default green
     p.classList.remove('state-selected');
   });
-  if (canon.includes('Unspecified geography')) return;
-  if (canon.includes('PAN India')) {
-    paths.forEach(p => {
-      p.style.fill = '#1f7a8c';
+  
+  if (!selectedStates || selectedStates.length === 0) {
+    console.log('No states to highlight');
+    return;
+  }
+  
+  const canonicalStates = selectedStates.map(canonicalStateName);
+  
+  // Handle special cases
+  if (canonicalStates.includes('Unspecified geography')) {
+    console.log('Unspecified geography selected - no highlighting');
+    return;
+  }
+  
+  if (canonicalStates.includes('PAN India')) {
+    console.log('PAN India selected - highlighting all states');
+    allPaths.forEach(p => {
+      p.style.fill = '#1f7a8c'; // Selected blue
       p.classList.add('state-selected');
     });
     return;
   }
-  canon.forEach(state => {
-    const matches = svgContainer.querySelectorAll(`path[name="${state}"]`);
-    matches.forEach(p => {
-      p.style.fill = '#1f7a8c';
-      p.classList.add('state-selected');
-    });
+  
+  // Highlight specific states
+  let highlightedCount = 0;
+  canonicalStates.forEach(state => {
+    const stateElement = findStateElement(state, svg);
+    if (stateElement) {
+      stateElement.style.fill = '#1f7a8c'; // Selected blue
+      stateElement.classList.add('state-selected');
+      highlightedCount++;
+      console.log(`Highlighted state: ${state}`);
+    }
   });
+  
+  console.log(`Highlighted ${highlightedCount} out of ${canonicalStates.length} selected states`);
+  
+  // Update counter if it exists
   const counter = document.getElementById('state-count');
   if (counter) {
-    counter.innerText = `Selected: ${canon.length}`;
+    counter.innerText = `Selected: ${highlightedCount}`;
   }
 }
 
@@ -968,14 +1011,27 @@ const stateCoordinates = {
 
 // Enhanced function to display spending value labels on selected states (with improved readability)
 function labelSelectedStatesWithValues(selectedStates, filteredData) {
-  const svg = document.getElementById("indiaMap");
-  if (!svg) return;
+  const svgContainer = document.getElementById("indiaMap");
+  if (!svgContainer) {
+    console.error('SVG container not found');
+    return;
+  }
+  
+  const svg = svgContainer.querySelector('svg');
+  if (!svg) {
+    console.error('SVG element not found in container');
+    return;
+  }
   
   // Remove old labels
   svg.querySelectorAll('.map-label').forEach(e => e.remove());
   
-  if (!selectedStates || selectedStates.length === 0) return;
+  if (!selectedStates || selectedStates.length === 0) {
+    console.log('No states selected for labeling');
+    return;
+  }
   
+  // Calculate spending by state
   const stateTotals = {};
   filteredData.forEach(row => {
     const state = canonicalStateName(row["CSR State"]);
@@ -983,48 +1039,82 @@ function labelSelectedStatesWithValues(selectedStates, filteredData) {
     stateTotals[state] = (stateTotals[state] || 0) + amt;
   });
   
+  console.log('State totals calculated:', stateTotals);
+  
   // Only show labels for states with significant spending (> 1 Cr) to avoid clutter
   const significantStates = selectedStates.filter(state => 
     stateTotals[state] && stateTotals[state] > 1
   );
+  
+  console.log('Significant states for labeling:', significantStates);
   
   // Limit to top 15 states by spending to avoid overcrowding
   const topStates = significantStates
     .sort((a, b) => (stateTotals[b] || 0) - (stateTotals[a] || 0))
     .slice(0, 15);
   
+  console.log('Top states for labeling:', topStates);
+  
+  let labelsAdded = 0;
+  
   topStates.forEach(state => {
-    const coords = stateCoordinates[state];
     const val = stateTotals[state];
-    if (coords && val && val > 0) {
-      // Create background rectangle for better readability
-      const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-      rect.setAttribute("x", coords[0] - 25);
-      rect.setAttribute("y", coords[1] - 10);
-      rect.setAttribute("width", 50);
-      rect.setAttribute("height", 16);
-      rect.setAttribute("class", "map-label");
-      rect.setAttribute("fill", "rgba(255, 255, 255, 0.8)");
-      rect.setAttribute("stroke", "#333");
-      rect.setAttribute("stroke-width", "0.5");
-      rect.setAttribute("rx", "3");
-      svg.appendChild(rect);
-      
-      // Create text label
-      const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-      text.setAttribute("x", coords[0]);
-      text.setAttribute("y", coords[1] + 3);
-      text.setAttribute("class", "map-label");
-      text.setAttribute("text-anchor", "middle");
-      text.setAttribute("font-size", "10");
-      text.setAttribute("font-weight", "bold");
-      text.setAttribute("fill", "#333");
-      text.textContent = val >= 1000 ? 
-        `₹${(val/1000).toFixed(1)}K` : 
-        `₹${val.toFixed(0)}`;
-      svg.appendChild(text);
-    }
+    if (!val || val <= 0) return;
+    
+    // Find the state element in SVG
+    const stateElement = findStateElement(state, svg);
+    if (!stateElement) return;
+    
+    // Get coordinates dynamically
+    const coords = getStateCoordinates(stateElement);
+    if (!coords) return;
+    
+    console.log(`Adding label for ${state} at coordinates [${coords[0]}, ${coords[1]}] with value ₹${val}`);
+    
+    // Create a group for the label
+    const labelGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    labelGroup.setAttribute("class", "map-label map-label-group");
+    
+    // Create background rectangle for better readability
+    const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    const textWidth = 50; // Estimated width
+    const textHeight = 16;
+    
+    rect.setAttribute("x", coords[0] - textWidth/2);
+    rect.setAttribute("y", coords[1] - textHeight/2);
+    rect.setAttribute("width", textWidth);
+    rect.setAttribute("height", textHeight);
+    rect.setAttribute("fill", "rgba(255, 255, 255, 0.9)");
+    rect.setAttribute("stroke", "#333");
+    rect.setAttribute("stroke-width", "0.5");
+    rect.setAttribute("rx", "3");
+    labelGroup.appendChild(rect);
+    
+    // Create text label
+    const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    text.setAttribute("x", coords[0]);
+    text.setAttribute("y", coords[1] + 4); // Slight vertical adjustment
+    text.setAttribute("text-anchor", "middle");
+    text.setAttribute("dominant-baseline", "middle");
+    text.setAttribute("font-size", "10");
+    text.setAttribute("font-weight", "bold");
+    text.setAttribute("fill", "#333");
+    text.setAttribute("font-family", "Arial, sans-serif");
+    
+    // Format the value
+    const formattedValue = val >= 1000 ? 
+      `₹${(val/1000).toFixed(1)}K` : 
+      `₹${val.toFixed(0)}`;
+    
+    text.textContent = formattedValue;
+    labelGroup.appendChild(text);
+    
+    // Add the label group to SVG
+    svg.appendChild(labelGroup);
+    labelsAdded++;
   });
+  
+  console.log(`Added ${labelsAdded} labels to the map`);
 }
 
 // Enhanced function to export the complete map as PNG with all visual elements
