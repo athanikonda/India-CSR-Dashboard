@@ -611,11 +611,11 @@ function updateCharts() {
   const statesData = calculateStateData();
   const sectorsData = calculateSectorData();
   const companiesData = calculateCompanyData();
-  updateBarChart('overviewStatesChart', 'overviewStatesChartInstance', statesData.slice(0, 15), 'Top 15 States by CSR Spending', '#1f7a8c');
-  updateBarChart('overviewSectorsChart', 'overviewSectorsChartInstance', sectorsData.slice(0, 10), 'Top Development Sectors', '#ff6b35');
-  updateBarChart('statesChart', 'statesChartInstance', statesData, 'All States by CSR Spending', '#1f7a8c');
-  updateBarChart('sectorsChart', 'sectorsChartInstance', sectorsData, 'All Development Sectors', '#ff6b35');
-  updateBarChart('companiesChart', 'companiesChartInstance', companiesData.slice(0, 20), 'Top 20 Companies by CSR Spending', '#084c61');
+  updateBarChart('overviewStatesChart', 'overviewStatesChartInstance', statesData.slice(0, 15), 'CSR Spending Rankings: Top 15 States/UTs (Curated List)', '#1f7a8c');
+  updateBarChart('overviewSectorsChart', 'overviewSectorsChartInstance', sectorsData.slice(0, 10), 'CSR Spending Rankings: Top 10 Development Sectors (Curated List)', '#ff6b35');
+  updateBarChart('statesChart', 'statesChartInstance', statesData, 'CSR Spending in States/UTs (Curated List)', '#1f7a8c');
+  updateBarChart('sectorsChart', 'sectorsChartInstance', sectorsData, 'CSR Spending in Development Sectors (Curated List)', '#ff6b35');
+  updateBarChart('companiesChart', 'companiesChartInstance', companiesData.slice(0, 20), 'CSR Spending Rankings: Top 20 Companies (Curated List)', '#084c61');
 }
 
 // Enhanced bar chart update: includes watermark, subtitles and datalabels
