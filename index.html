@@ -109,7 +109,7 @@
                             </div>
                         </div>
                         <div class="metric-card">
-                            <div class="metric-icon">📋</div>
+                            <div the metric-icon">📋</div>
                             <div class="metric-content">
                                 <h3 class="metric-value" id="totalProjectsMetric">Loading...</h3>
                                 <p class="metric-label">Total Projects</p>
@@ -149,31 +149,17 @@
 
                 <!-- India Map Tab -->
                 <div id="map" class="tab-content">
+                    <!--
+                        <div class="data-header">
+                        <h2>India CSR Spending Map</h2>
+                        <p class="data-description">Interactive map showing CSR spending by state with complete dataset</p>
+                    </div>
+                    -->
+                    
                     <div class="map-section">
-                        <!-- Map Header with Title and Controls -->
-                        <div class="map-header">
-                            <div class="map-title-section">
-                                <h2 id="mapTitle">India CSR Spending Distribution by State/Union Territory</h2>
-                                <p id="mapSubtitle" class="map-subtitle">India CSR Spending Dashboard | FY 2023-24</p>
-                            </div>
-                            <div class="map-controls">
-                                <div class="map-filters-summary" id="mapFilters">
-                                    <span class="filters-label">Applied Filters: </span>
-                                    <span id="mapFiltersSummary">None</span>
-                                </div>
-                                <div class="map-export-buttons">
-                                    <button id="exportMapImage" class="btn btn--primary btn--sm">📥 Download Map PNG</button>
-                                    <button id="exportMapData" class="btn btn--outline btn--sm">📊 Export Map Data</button>
-                                </div>
-                            </div>
-                        </div>
-                        
                         <div class="map-container">
                             <!-- SVG will be loaded here dynamically -->
                             <div id="indiaMap"></div>
-                            
-                            <!-- Map watermark -->
-                            <div class="map-watermark">Prepared by Ashok Thanikonda</div>
                             
                             <!-- Map tooltip -->
                             <div id="mapTooltip" class="map-tooltip">
