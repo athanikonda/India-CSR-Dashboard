@@ -38,7 +38,7 @@ const customWatermark = {
     ctx.font = '12px Arial';
     ctx.textAlign = 'right';
     ctx.textBaseline = 'bottom';
-    ctx.fillText('Prepared by Ashok Thanikonda', width - 10, height - 10);
+    ctx.fillText('Prepared by Ashok Thanikonda', width - 10, height /2);
     ctx.restore();
   }
 };
@@ -80,123 +80,6 @@ function canonicalStateName(name) {
   if (n.startsWith("pan india") || n === "pan india (other centralized funds)") return "PAN India";
   if (n.includes("not mentioned") || n.startsWith("nec") || n === "nec/not mentioned") return "Unspecified geography";
   return name.trim();
-}
-
-// Dynamic state coordinate detection
-function getStateCoordinates(stateElement) {
-  if (!stateElement) return null;
-  
-  try {
-    // Get bounding box of the state element
-    const bbox = stateElement.getBBox();
-    
-    // Calculate center point
-    const centerX = bbox.x + bbox.width / 2;
-    const centerY = bbox.y + bbox.height / 2;
-    
-    return [centerX, centerY];
-  } catch (error) {
-    console.warn('Could not get coordinates for state:', stateElement.id || stateElement.getAttribute('name'), error);
-    return null;
-  }
-}
-
-// Enhanced state name mapping that handles multiple possible ID formats
-function findStateElement(stateName, svgContainer) {
-  if (!svgContainer || !stateName) return null;
-  
-  const canonicalName = canonicalStateName(stateName);
-  
-  // Try multiple selector strategies
-  const selectors = [
-    `path[id="${canonicalName}"]`,
-    `path[name="${canonicalName}"]`,
-    `path[data-state="${canonicalName}"]`,
-    `g[id="${canonicalName}"]`,
-    `g[name="${canonicalName}"]`,
-    // Try variations with underscores and lowercase
-    `path[id="${canonicalName.replace(/\s+/g, '_')}"]`,
-    `path[id="${canonicalName.toLowerCase().replace(/\s+/g, '_')}"]`,
-    `path[id="${canonicalName.replace(/\s+/g, '')}"]`,
-    // Try partial matching
-    `path[id*="${canonicalName.split(' ')[0]}"]`,
-    `path[name*="${canonicalName.split(' ')[0]}"]`
-  ];
-  
-  for (const selector of selectors) {
-    try {
-      const element = svgContainer.querySelector(selector);
-      if (element) {
-        console.log(`Found state element for ${canonicalName} using selector: ${selector}`);
-        return element;
-      }
-    } catch (e) {
-      // Invalid selector, continue
-    }
-  }
-  
-  // If no direct match, try all path elements and compare text content or data attributes
-  const allPaths = svgContainer.querySelectorAll('path, g');
-  for (const path of allPaths) {
-    const pathId = path.id || '';
-    const pathName = path.getAttribute('name') || '';
-    const pathTitle = path.querySelector('title')?.textContent || '';
-    
-    if (pathId.toLowerCase().includes(canonicalName.toLowerCase()) ||
-        pathName.toLowerCase().includes(canonicalName.toLowerCase()) ||
-        pathTitle.toLowerCase().includes(canonicalName.toLowerCase())) {
-      console.log(`Found state element for ${canonicalName} by content matching:`, path.id || path.getAttribute('name'));
-      return path;
-    }
-  }
-  
-  console.warn(`Could not find SVG element for state: ${canonicalName}`);
-  return null;
-}
-
-// Debug function to inspect SVG structure
-function debugSVGStructure() {
-  const svgContainer = document.querySelector('#indiaMap');
-  if (!svgContainer) {
-    console.log('SVG container not found');
-    return;
-  }
-  
-  const svg = svgContainer.querySelector('svg');
-  if (!svg) {
-    console.log('SVG element not found');
-    return;
-  }
-  
-  console.log('SVG viewBox:', svg.getAttribute('viewBox'));
-  console.log('SVG width:', svg.getAttribute('width'));
-  console.log('SVG height:', svg.getAttribute('height'));
-  
-  const paths = svg.querySelectorAll('path');
-  const groups = svg.querySelectorAll('g');
-  
-  console.log(`Found ${paths.length} path elements and ${groups.length} group elements`);
-  
-  // Log first few path elements with their IDs
-  console.log('Sample path elements:');
-  Array.from(paths).slice(0, 10).forEach((path, index) => {
-    console.log(`Path ${index}:`, {
-      id: path.id,
-      name: path.getAttribute('name'),
-      'data-state': path.getAttribute('data-state'),
-      title: path.querySelector('title')?.textContent
-    });
-  });
-  
-  // Log group elements
-  console.log('Group elements:');
-  Array.from(groups).slice(0, 10).forEach((group, index) => {
-    console.log(`Group ${index}:`, {
-      id: group.id,
-      name: group.getAttribute('name'),
-      'data-state': group.getAttribute('data-state')
-    });
-  });
 }
 
 // Compute human readable label for number of states selected
@@ -279,21 +162,12 @@ async function loadIndiaMap() {
     const mapContainer = document.querySelector('#indiaMap');
     if (mapContainer) {
       mapContainer.innerHTML = svgText;
-      
-      // Debug the SVG structure after loading
-      setTimeout(() => {
-        console.log('=== SVG STRUCTURE DEBUG ===');
-        debugSVGStructure();
-      }, 100);
-      
       const statePaths = mapContainer.querySelectorAll('path, g[id]');
       statePaths.forEach(path => {
         path.addEventListener('mouseenter', handleMapHover);
         path.addEventListener('mouseleave', handleMapLeave);
         path.addEventListener('click', handleMapClick);
       });
-      
-      console.log(`Loaded SVG map with ${statePaths.length} interactive elements`);
     }
   } catch (error) {
     console.error("Error loading India map:", error);
@@ -341,87 +215,33 @@ function handleMapClick(event) {
   }
 }
 
-// Update map title and subtitle based on filters
-function updateMapDisplay() {
-  const filtersSummary = getSelectedFiltersSummary();
-  const mapTitle = document.getElementById('mapTitle');
-  const mapSubtitle = document.getElementById('mapSubtitle');
-  const mapFiltersSummary = document.getElementById('mapFiltersSummary');
-  
-  if (mapTitle) {
-    mapTitle.textContent = 'India CSR Spending Distribution by State/Union Territory';
-  }
-  
-  if (mapSubtitle) {
-    mapSubtitle.textContent = 'India CSR Spending Dashboard | FY 2023-24' + (filtersSummary ? ' | ' + filtersSummary : '');
-  }
-  
-  if (mapFiltersSummary) {
-    mapFiltersSummary.textContent = filtersSummary || 'None';
-  }
-}
-
 // State highlighting
-function highlightMapStates(selectedStates) {
+function highlightMapStates(canon) {
   const svgContainer = document.querySelector('#indiaMap');
-  if (!svgContainer) {
-    console.error('SVG container not found for highlighting');
-    return;
-  }
-  
-  const svg = svgContainer.querySelector('svg');
-  if (!svg) {
-    console.error('SVG element not found for highlighting');
-    return;
-  }
-  
-  // Reset all paths to default color
-  const allPaths = svg.querySelectorAll('path');
-  allPaths.forEach(p => {
-    p.style.fill = '#7FB069'; // Default green
+  if (!svgContainer || !canon || canon.length === 0) return;
+  const paths = svgContainer.querySelectorAll('path');
+  paths.forEach(p => {
+    p.style.fill = '#7FB069';
     p.classList.remove('state-selected');
   });
-  
-  if (!selectedStates || selectedStates.length === 0) {
-    console.log('No states to highlight');
-    return;
-  }
-  
-  const canonicalStates = selectedStates.map(canonicalStateName);
-  
-  // Handle special cases
-  if (canonicalStates.includes('Unspecified geography')) {
-    console.log('Unspecified geography selected - no highlighting');
-    return;
-  }
-  
-  if (canonicalStates.includes('PAN India')) {
-    console.log('PAN India selected - highlighting all states');
-    allPaths.forEach(p => {
-      p.style.fill = '#1f7a8c'; // Selected blue
+  if (canon.includes('Unspecified geography')) return;
+  if (canon.includes('PAN India')) {
+    paths.forEach(p => {
+      p.style.fill = '#1f7a8c';
       p.classList.add('state-selected');
     });
     return;
   }
-  
-  // Highlight specific states
-  let highlightedCount = 0;
-  canonicalStates.forEach(state => {
-    const stateElement = findStateElement(state, svg);
-    if (stateElement) {
-      stateElement.style.fill = '#1f7a8c'; // Selected blue
-      stateElement.classList.add('state-selected');
-      highlightedCount++;
-      console.log(`Highlighted state: ${state}`);
-    }
+  canon.forEach(state => {
+    const matches = svgContainer.querySelectorAll(`path[name="${state}"]`);
+    matches.forEach(p => {
+      p.style.fill = '#1f7a8c';
+      p.classList.add('state-selected');
+    });
   });
-  
-  console.log(`Highlighted ${highlightedCount} out of ${canonicalStates.length} selected states`);
-  
-  // Update counter if it exists
   const counter = document.getElementById('state-count');
   if (counter) {
-    counter.innerText = `Selected: ${highlightedCount}`;
+    counter.innerText = `Selected: ${canon.length}`;
   }
 }
 
@@ -435,33 +255,11 @@ function initializeTabs() {
       tab.classList.add("active");
       const target = document.getElementById(tab.dataset.tab);
       if (target) target.classList.add("active");
-      
-      // Update map display when map tab is selected
-      if (tab.dataset.tab === 'map') {
-        setTimeout(() => {
-          updateMapDisplay();
-          const selectedStates = getSelectedStates();
-          labelSelectedStatesWithValues(selectedStates, filteredData);
-        }, 100);
-      }
-      
       setTimeout(() => updateCharts(), 100);
     });
   });
   if (tabs.length > 0) {
     tabs[0].click();
-  }
-}
-
-function getSelectedStates() {
-  const stateFilter = document.getElementById('stateFilter');
-  const showAllStates = Array.from(stateFilter?.selectedOptions || []).map(o => o.value).includes("__ALL__");
-  if (showAllStates) {
-    return Array.from(new Set(rawData.map(r => canonicalStateName(r['CSR State']))));
-  } else {
-    return Array.from(stateFilter?.selectedOptions || [])
-      .map(o => o.value)
-      .filter(v => v !== "__ALL__");
   }
 }
 
@@ -514,8 +312,6 @@ function initializeEventListeners() {
   document.getElementById('exportStatesData')?.addEventListener('click', exportStatesData);
   document.getElementById('exportSectorsData')?.addEventListener('click', exportSectorsData);
   document.getElementById('exportCompaniesData')?.addEventListener('click', exportCompaniesData);
-  document.getElementById('exportMapData')?.addEventListener('click', exportMapData);
-  document.getElementById('exportMapImage')?.addEventListener('click', exportMapAsImage);
   initializeChartDownloads();
 }
 
@@ -583,8 +379,7 @@ function applyFilters() {
   updateFilterResults();
   const selectedStates = showAllStates ? Array.from(new Set(rawData.map(r => canonicalStateName(r['CSR State'])))) : stateFilter.filter(s => s !== "__ALL__");
   highlightMapStates(selectedStates);
-  // Update map value labels and display
-  updateMapDisplay();
+  // Update map value labels
   labelSelectedStatesWithValues(selectedStates, filteredData);
 }
 
@@ -604,8 +399,7 @@ function resetFilters() {
   updateDashboard();
   updateFilterResults();
   highlightMapStates([]);
-  // Clear map labels and update display
-  updateMapDisplay();
+  // Clear map labels
   labelSelectedStatesWithValues([], []);
 }
 
@@ -824,7 +618,7 @@ function updateCharts() {
   updateBarChart('companiesChart', 'companiesChartInstance', companiesData.slice(0, 20), 'CSR Spending Rankings: Top 20 Companies (Curated List)', '#084c61');
 }
 
-// Enhanced bar chart update: includes watermark, subtitles and datalabels (without "Cr" in data labels)
+// Enhanced bar chart update: includes watermark, subtitles and datalabels
 function updateBarChart(canvasId, instanceVar, data, title, color) {
   const canvas = document.getElementById(canvasId);
   if (!canvas) return;
@@ -865,13 +659,9 @@ function updateBarChart(canvasId, instanceVar, data, title, color) {
           align: 'end',
           color: '#000',
           formatter: function(value) {
-            return '₹' + value.toLocaleString('en-IN', { maximumFractionDigits: 2 });
+            return '₹' + value.toLocaleString('en-IN', { maximumFractionDigits: 2 }) + ' Cr';
           },
-          font: { 
-            weight: 'bold',
-            size: 10 
-          },
-          rotation: 0
+          font: { weight: 'bold' }
         }
       },
       scales: {
@@ -936,23 +726,6 @@ function exportCompaniesData() {
   }));
   exportToCSV(csvData, 'companies_analysis.csv');
 }
-
-// New: Export map data functionality
-function exportMapData() {
-  const statesData = calculateStateData();
-  const filtersSummary = getSelectedFiltersSummary();
-  const csvData = statesData.map(state => ({
-    'State/Union Territory': state.name,
-    'Total CSR Spending (₹ Cr)': state.spending,
-    'Number of Projects': state.projects,
-    'Number of Companies': state.companies,
-    'Average per Project (₹ Cr)': state.average,
-    'Percentage of Total': state.percentage,
-    'Applied Filters': filtersSummary || 'None'
-  }));
-  exportToCSV(csvData, 'india_map_csr_data.csv');
-}
-
 function exportToCSV(data, filename) {
   if (!data.length) return;
   const csv = Papa.unparse(data);
@@ -969,7 +742,7 @@ function exportToCSV(data, filename) {
   }
 }
 
-// Map coordinate positions for value labels (optimized for readability)
+// Map coordinate positions for value labels
 const stateCoordinates = {
   "Andhra Pradesh": [580, 620],
   "Arunachal Pradesh": [950, 260],
@@ -1009,287 +782,35 @@ const stateCoordinates = {
   "Puducherry": [600, 850]
 };
 
-// Enhanced function to display spending value labels on selected states (with improved readability)
+// Display spending value labels on selected states
 function labelSelectedStatesWithValues(selectedStates, filteredData) {
-  const svgContainer = document.getElementById("indiaMap");
-  if (!svgContainer) {
-    console.error('SVG container not found');
-    return;
-  }
-  
-  const svg = svgContainer.querySelector('svg');
-  if (!svg) {
-    console.error('SVG element not found in container');
-    return;
-  }
-  
+  const svg = document.getElementById("indiaMap");
+  if (!svg) return;
   // Remove old labels
   svg.querySelectorAll('.map-label').forEach(e => e.remove());
-  
-  if (!selectedStates || selectedStates.length === 0) {
-    console.log('No states selected for labeling');
-    return;
-  }
-  
-  // Calculate spending by state
   const stateTotals = {};
   filteredData.forEach(row => {
     const state = canonicalStateName(row["CSR State"]);
     const amt = parseFloat(row["Project Amount Spent (In INR Cr.)"] || 0);
     stateTotals[state] = (stateTotals[state] || 0) + amt;
   });
-  
-  console.log('State totals calculated:', stateTotals);
-  
-  // Only show labels for states with significant spending (> 1 Cr) to avoid clutter
-  const significantStates = selectedStates.filter(state => 
-    stateTotals[state] && stateTotals[state] > 1
-  );
-  
-  console.log('Significant states for labeling:', significantStates);
-  
-  // Limit to top 15 states by spending to avoid overcrowding
-  const topStates = significantStates
-    .sort((a, b) => (stateTotals[b] || 0) - (stateTotals[a] || 0))
-    .slice(0, 15);
-  
-  console.log('Top states for labeling:', topStates);
-  
-  let labelsAdded = 0;
-  
-  topStates.forEach(state => {
-    const val = stateTotals[state];
-    if (!val || val <= 0) return;
-    
-    // Find the state element in SVG
-    const stateElement = findStateElement(state, svg);
-    if (!stateElement) return;
-    
-    // Get coordinates dynamically
-    const coords = getStateCoordinates(stateElement);
-    if (!coords) return;
-    
-    console.log(`Adding label for ${state} at coordinates [${coords[0]}, ${coords[1]}] with value ₹${val}`);
-    
-    // Create a group for the label
-    const labelGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
-    labelGroup.setAttribute("class", "map-label map-label-group");
-    
-    // Create background rectangle for better readability
-    const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-    const textWidth = 50; // Estimated width
-    const textHeight = 16;
-    
-    rect.setAttribute("x", coords[0] - textWidth/2);
-    rect.setAttribute("y", coords[1] - textHeight/2);
-    rect.setAttribute("width", textWidth);
-    rect.setAttribute("height", textHeight);
-    rect.setAttribute("fill", "rgba(255, 255, 255, 0.9)");
-    rect.setAttribute("stroke", "#333");
-    rect.setAttribute("stroke-width", "0.5");
-    rect.setAttribute("rx", "3");
-    labelGroup.appendChild(rect);
-    
-    // Create text label
-    const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-    text.setAttribute("x", coords[0]);
-    text.setAttribute("y", coords[1] + 4); // Slight vertical adjustment
-    text.setAttribute("text-anchor", "middle");
-    text.setAttribute("dominant-baseline", "middle");
-    text.setAttribute("font-size", "10");
-    text.setAttribute("font-weight", "bold");
-    text.setAttribute("fill", "#333");
-    text.setAttribute("font-family", "Arial, sans-serif");
-    
-    // Format the value
-    const formattedValue = val >= 1000 ? 
-      `₹${(val/1000).toFixed(1)}K` : 
-      `₹${val.toFixed(0)}`;
-    
-    text.textContent = formattedValue;
-    labelGroup.appendChild(text);
-    
-    // Add the label group to SVG
-    svg.appendChild(labelGroup);
-    labelsAdded++;
+  selectedStates.forEach(state => {
+    const coords = stateCoordinates[state];
+    const val = stateTotals[state]?.toFixed(2);
+    if (coords && val) {
+      const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      text.setAttribute("x", coords[0]);
+      text.setAttribute("y", coords[1]);
+      text.setAttribute("class", "map-label");
+      text.setAttribute("text-anchor", "middle");
+      text.setAttribute("font-size", "14");
+      text.setAttribute("fill", "#333");
+      text.setAttribute("stroke", "white");
+      text.setAttribute("stroke-width", "0.5");
+      text.textContent = `₹${val} Cr`;
+      svg.appendChild(text);
+    }
   });
-  
-  console.log(`Added ${labelsAdded} labels to the map`);
-}
-
-// Enhanced function to export the complete map as PNG with all visual elements
-async function exportMapAsImage() {
-  try {
-    const mapContainer = document.querySelector('#indiaMap');
-    if (!mapContainer) {
-      alert('Map not found');
-      return;
-    }
-
-    const svgElement = mapContainer.querySelector('svg');
-    if (!svgElement) {
-      alert('SVG map not loaded');
-      return;
-    }
-
-    // Create a new SVG for export with enhanced layout
-    const exportSvg = svgElement.cloneNode(true);
-    const svgWidth = 1200;
-    const svgHeight = 1000;
-    
-    // Set up the export SVG dimensions
-    exportSvg.setAttribute('width', svgWidth);
-    exportSvg.setAttribute('height', svgHeight);
-    exportSvg.setAttribute('viewBox', `0 0 ${svgWidth} ${svgHeight}`);
-    exportSvg.style.background = '#f8f9fa';
-
-    // Add title to the SVG
-    const titleText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    titleText.setAttribute('x', svgWidth / 2);
-    titleText.setAttribute('y', 40);
-    titleText.setAttribute('text-anchor', 'middle');
-    titleText.setAttribute('font-family', 'Arial, sans-serif');
-    titleText.setAttribute('font-size', '24');
-    titleText.setAttribute('font-weight', 'bold');
-    titleText.setAttribute('fill', '#2c3e50');
-    titleText.textContent = 'India CSR Spending Distribution by State/Union Territory';
-    exportSvg.appendChild(titleText);
-
-    // Add subtitle with filters
-    const filtersSummary = getSelectedFiltersSummary();
-    const subtitleText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    subtitleText.setAttribute('x', svgWidth / 2);
-    subtitleText.setAttribute('y', 65);
-    subtitleText.setAttribute('text-anchor', 'middle');
-    subtitleText.setAttribute('font-family', 'Arial, sans-serif');
-    subtitleText.setAttribute('font-size', '14');
-    subtitleText.setAttribute('font-style', 'italic');
-    subtitleText.setAttribute('fill', '#6c757d');
-    subtitleText.textContent = 'India CSR Spending Dashboard | FY 2023-24' + (filtersSummary ? ' | ' + filtersSummary : '');
-    exportSvg.appendChild(subtitleText);
-
-    // Add watermark
-    const watermarkText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    watermarkText.setAttribute('x', svgWidth - 20);
-    watermarkText.setAttribute('y', svgHeight - 20);
-    watermarkText.setAttribute('text-anchor', 'end');
-    watermarkText.setAttribute('font-family', 'Arial, sans-serif');
-    watermarkText.setAttribute('font-size', '12');
-    watermarkText.setAttribute('font-style', 'italic');
-    watermarkText.setAttribute('fill', 'rgba(0,0,0,0.4)');
-    watermarkText.textContent = 'Prepared by Ashok Thanikonda';
-    exportSvg.appendChild(watermarkText);
-
-    // Transform existing map content to fit in the available space
-    const mapGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-    mapGroup.setAttribute('transform', 'translate(100, 90) scale(0.8)');
-    
-    // Move all existing map elements to the group
-    const existingPaths = Array.from(exportSvg.children).filter(child => 
-      child.tagName === 'path' || child.tagName === 'g'
-    );
-    existingPaths.forEach(element => {
-      mapGroup.appendChild(element);
-    });
-    
-    // Move existing labels to the group
-    const existingLabels = Array.from(exportSvg.querySelectorAll('.map-label'));
-    existingLabels.forEach(label => {
-      mapGroup.appendChild(label);
-    });
-
-    exportSvg.appendChild(mapGroup);
-
-    // Add legend/summary box
-    const legendGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-    
-    // Legend background
-    const legendBg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    legendBg.setAttribute('x', 50);
-    legendBg.setAttribute('y', svgHeight - 150);
-    legendBg.setAttribute('width', 300);
-    legendBg.setAttribute('height', 120);
-    legendBg.setAttribute('fill', 'rgba(255, 255, 255, 0.9)');
-    legendBg.setAttribute('stroke', '#dee2e6');
-    legendBg.setAttribute('stroke-width', '1');
-    legendBg.setAttribute('rx', '8');
-    legendGroup.appendChild(legendBg);
-
-    // Legend title
-    const legendTitle = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    legendTitle.setAttribute('x', 60);
-    legendTitle.setAttribute('y', svgHeight - 125);
-    legendTitle.setAttribute('font-family', 'Arial, sans-serif');
-    legendTitle.setAttribute('font-size', '14');
-    legendTitle.setAttribute('font-weight', 'bold');
-    legendTitle.setAttribute('fill', '#2c3e50');
-    legendTitle.textContent = 'Summary Statistics';
-    legendGroup.appendChild(legendTitle);
-
-    // Add summary statistics
-    const totalSpending = filteredData.reduce((sum, row) => sum + parseSpending(row["Project Amount Spent (In INR Cr.)"]), 0);
-    const totalCompanies = new Set(filteredData.map(r => r['Company Name']).filter(name => name && name.trim())).size;
-    const totalProjects = filteredData.length;
-    const statesCount = new Set(filteredData.map(r => canonicalStateName(r['CSR State'])).filter(state => state && state !== 'Unknown')).size;
-
-    const summaryLines = [
-      `Total Spending: ₹${totalSpending.toLocaleString('en-IN', {maximumFractionDigits: 2})} Cr`,
-      `Companies: ${totalCompanies.toLocaleString('en-IN')}`,
-      `Projects: ${totalProjects.toLocaleString('en-IN')}`,
-      `States/UTs: ${statesCount}`
-    ];
-
-    summaryLines.forEach((line, index) => {
-      const summaryText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-      summaryText.setAttribute('x', 60);
-      summaryText.setAttribute('y', svgHeight - 105 + (index * 18));
-      summaryText.setAttribute('font-family', 'Arial, sans-serif');
-      summaryText.setAttribute('font-size', '12');
-      summaryText.setAttribute('fill', '#495057');
-      summaryText.textContent = line;
-      legendGroup.appendChild(summaryText);
-    });
-
-    exportSvg.appendChild(legendGroup);
-
-    // Convert SVG to PNG
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    canvas.width = svgWidth;
-    canvas.height = svgHeight;
-
-    // Create a blob from SVG
-    const svgData = new XMLSerializer().serializeToString(exportSvg);
-    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-    const url = URL.createObjectURL(svgBlob);
-
-    // Create image and draw to canvas
-    const img = new Image();
-    img.onload = function() {
-      ctx.fillStyle = '#f8f9fa';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0);
-      
-      // Download the image
-      const link = document.createElement('a');
-      link.download = `india-csr-spending-map-${new Date().toISOString().split('T')[0]}.png`;
-      link.href = canvas.toDataURL('image/png');
-      link.click();
-      
-      URL.revokeObjectURL(url);
-    };
-    
-    img.onerror = function() {
-      console.error('Failed to load SVG image');
-      alert('Failed to export map. Please try again.');
-    };
-    
-    img.src = url;
-
-  } catch (error) {
-    console.error('Error exporting map:', error);
-    alert('Failed to export map. Please try again.');
-  }
 }
 
 console.log("Enhanced dashboard script loaded successfully");
