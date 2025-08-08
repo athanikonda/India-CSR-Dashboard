@@ -1,3 +1,14 @@
+// app.revised.js
+// Complete CSR Dashboard script with enhanced chart features and map labels
+// Includes watermark, dynamic subtitle with dashboard title and selected filters,
+// vertical y‑axis labels, bar value labels via Chart.js datalabels plugin,
+// and map value labels for selected states.
+
+// NOTE: To use this script you must load Chart.js and the chartjs-plugin-datalabels
+// in your HTML. Example:
+// <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+// <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+
 console.log("Initializing enhanced dashboard...");
 
 const csvUrl = '/api/fetch-sheet';
@@ -49,8 +60,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   initializeFilters();
   initializeEventListeners();
   updateDashboard();
-  loadIndiaMap();
-  updateMap(); // Initialize map labels and filter summary
+  loadIndiaMap(); // Load the SVG map
 });
 
 // UPDATED: State name canonicalization with SVG spellings
@@ -235,23 +245,6 @@ function highlightMapStates(canon) {
   }
 }
 
-// Update map with labels and filter summary
-function updateMap() {
-  const statesSelect = document.getElementById('stateFilter');
-  const selectedStates = Array.from(statesSelect.selectedOptions || [])
-    .map(opt => opt.value)
-    .filter(v => v !== '__ALL__')
-    .map(canonicalStateName);
-  labelSelectedStatesWithValues(selectedStates, filteredData);
-  highlightMapStates(selectedStates);
-  const filterSummary = document.getElementById('mapFilterSummary');
-  if (filterSummary) {
-    const summary = getSelectedFiltersSummary();
-    filterSummary.textContent = summary || 'No filters applied';
-    filterSummary.classList.toggle('filtered', !!summary);
-  }
-}
-
 function initializeTabs() {
   const tabs = document.querySelectorAll(".tab-button");
   const tabContents = document.querySelectorAll(".tab-content");
@@ -262,10 +255,7 @@ function initializeTabs() {
       tab.classList.add("active");
       const target = document.getElementById(tab.dataset.tab);
       if (target) target.classList.add("active");
-      setTimeout(() => {
-        updateCharts();
-        if (tab.dataset.tab === 'indiaMapTab') updateMap();
-      }, 100);
+      setTimeout(() => updateCharts(), 100);
     });
   });
   if (tabs.length > 0) {
@@ -287,124 +277,236 @@ function initializeFilters() {
       typeSet.add(row['PSU/Non-PSU'].trim());
     }
   });
+  populateMultiSelect("stateFilter", [...stateSet].sort());
+  populateMultiSelect("sectorFilter", [...sectorSet].sort());
+  populateMultiSelect("psuFilter", [...typeSet].sort());
+}
 
-  const stateFilter = document.getElementById('stateFilter');
-  const sectorFilter = document.getElementById('sectorFilter');
-  const psuFilter = document.getElementById('psuFilter');
-
-  stateFilter.innerHTML = '<option value="__ALL__">All States</option>';
-  Array.from(stateSet).sort().forEach(state => {
-    const option = document.createElement('option');
-    option.value = state;
-    option.textContent = state;
-    stateFilter.appendChild(option);
+function populateMultiSelect(selectId, items) {
+  const select = document.getElementById(selectId);
+  if (!select) return;
+  select.innerHTML = '';
+  const allOption = document.createElement("option");
+  allOption.value = "__ALL__";
+  allOption.text = "All";
+  allOption.selected = true;
+  select.appendChild(allOption);
+  items.forEach(item => {
+    const option = document.createElement("option");
+    option.value = item;
+    option.text = item;
+    option.selected = false;
+    select.appendChild(option);
   });
+}
 
-  sectorFilter.innerHTML = '<option value="__ALL__">All Sectors</option>';
-  Array.from(sectorSet).sort().forEach(sector => {
-    const option = document.createElement('option');
-    option.value = sector;
-    option.textContent = sector;
-    sectorFilter.appendChild(option);
+function initializeEventListeners() {
+  document.getElementById('stateFilter')?.addEventListener('change', applyFilters);
+  document.getElementById('sectorFilter')?.addEventListener('change', applyFilters);
+  document.getElementById('psuFilter')?.addEventListener('change', applyFilters);
+  document.getElementById('companySearch')?.addEventListener('input', applyFilters);
+  document.getElementById('resetFilters')?.addEventListener('click', resetFilters);
+  document.getElementById('prevPage')?.addEventListener('click', () => changePage(-1));
+  document.getElementById('nextPage')?.addEventListener('click', () => changePage(1));
+  document.getElementById('exportFilteredData')?.addEventListener('click', exportFilteredData);
+  document.getElementById('exportStatesData')?.addEventListener('click', exportStatesData);
+  document.getElementById('exportSectorsData')?.addEventListener('click', exportSectorsData);
+  document.getElementById('exportCompaniesData')?.addEventListener('click', exportCompaniesData);
+  initializeChartDownloads();
+}
+
+function initializeChartDownloads() {
+  const downloadButtons = document.querySelectorAll('.chart-download-btn');
+  downloadButtons.forEach(button => {
+    button.addEventListener('click', function() {
+      const chartId = this.getAttribute('data-chart');
+      downloadChart(chartId);
+    });
   });
+}
 
-  typeSet.forEach(type => {
-    const option = document.createElement('option');
-    option.value = type;
-    option.textContent = type;
-    psuFilter.appendChild(option);
-  });
-
-  stateFilter.addEventListener('change', applyFilters);
-  sectorFilter.addEventListener('change', applyFilters);
-  psuFilter.addEventListener('change', applyFilters);
-  document.getElementById('companySearch').addEventListener('input', applyFilters);
-  document.getElementById('resetFilters').addEventListener('click', resetFilters);
-  document.getElementById('exportFiltered').addEventListener('click', exportFilteredData);
-  document.getElementById('exportStates').addEventListener('click', exportStatesData);
-  document.getElementById('exportSectors').addEventListener('click', exportSectorsData);
-  document.getElementById('exportCompanies').addEventListener('click', exportCompaniesData);
-  document.getElementById('prevPage').addEventListener('click', () => changePage(-1));
-  document.getElementById('nextPage').addEventListener('click', () => changePage(1));
-  document.getElementById('exportMap').addEventListener('click', exportMapToPNG);
+function downloadChart(chartId) {
+  let chartInstance = null;
+  let fileName = 'chart.png';
+  switch(chartId) {
+    case 'overviewStates':
+      chartInstance = window.overviewStatesChartInstance;
+      fileName = 'top_15_states.png';
+      break;
+    case 'overviewSectors':
+      chartInstance = window.overviewSectorsChartInstance;
+      fileName = 'top_development_sectors.png';
+      break;
+    case 'states':
+      chartInstance = window.statesChartInstance;
+      fileName = 'all_states_analysis.png';
+      break;
+    case 'sectors':
+      chartInstance = window.sectorsChartInstance;
+      fileName = 'all_sectors_analysis.png';
+      break;
+    case 'companies':
+      chartInstance = window.companiesChartInstance;
+      fileName = 'top_companies.png';
+      break;
+  }
+  if (chartInstance) {
+    const link = document.createElement('a');
+    link.href = chartInstance.toBase64Image('image/png', 1.0);
+    link.download = fileName;
+    link.click();
+  }
 }
 
 function applyFilters() {
-  const stateFilter = document.getElementById('stateFilter');
-  const sectorFilter = document.getElementById('sectorFilter');
-  const psuFilter = document.getElementById('psuFilter');
-  const companySearch = document.getElementById('companySearch').value.trim().toLowerCase();
-
-  const selectedStates = Array.from(stateFilter.selectedOptions)
-    .map(opt => opt.value)
-    .filter(v => v !== '__ALL__');
-  const selectedSectors = Array.from(sectorFilter.selectedOptions)
-    .map(opt => opt.value)
-    .filter(v => v !== '__ALL__');
-  const selectedPSUs = Array.from(psuFilter.selectedOptions)
-    .map(opt => opt.value)
-    .filter(v => v !== '__ALL__');
-
+  const stateFilter = Array.from(document.getElementById('stateFilter')?.selectedOptions || []).map(o => o.value);
+  const sectorFilter = Array.from(document.getElementById('sectorFilter')?.selectedOptions || []).map(o => o.value);
+  const psuFilter = Array.from(document.getElementById('psuFilter')?.selectedOptions || []).map(o => o.value);
+  const companySearch = document.getElementById('companySearch')?.value.toLowerCase() || '';
+  const showAllStates = stateFilter.includes("__ALL__");
+  const showAllSectors = sectorFilter.includes("__ALL__");
+  const showAllPSU = psuFilter.includes("__ALL__");
   filteredData = rawData.filter(row => {
-    const state = canonicalStateName(row['CSR State']);
-    const sector = row['CSR Development Sector']?.trim();
-    const psu = row['PSU/Non-PSU']?.trim();
-    const company = row['Company Name']?.trim().toLowerCase();
-
-    const statePass = selectedStates.length === 0 || selectedStates.includes(state);
-    const sectorPass = selectedSectors.length === 0 || selectedSectors.includes(sector);
-    const psuPass = selectedPSUs.length === 0 || selectedPSUs.includes(psu);
-    const companyPass = companySearch === '' || company.includes(companySearch);
-
-    return statePass && sectorPass && psuPass && companyPass;
+    const canonicalState = canonicalStateName(row['CSR State']);
+    const stateMatch = showAllStates || stateFilter.includes(canonicalState);
+    const sectorMatch = showAllSectors || sectorFilter.includes(row['CSR Development Sector']);
+    const psuMatch = showAllPSU || psuFilter.includes(row['PSU/Non-PSU']);
+    const companyMatch = !companySearch || row['Company Name']?.toLowerCase().includes(companySearch);
+    return stateMatch && sectorMatch && psuMatch && companyMatch;
   });
-
   currentPage = 1;
   updateDashboard();
-  updateMap();
+  updateFilterResults();
+  const selectedStates = showAllStates ? Array.from(new Set(rawData.map(r => canonicalStateName(r['CSR State'])))) : stateFilter.filter(s => s !== "__ALL__");
+  highlightMapStates(selectedStates);
+  // Update map value labels
+  labelSelectedStatesWithValues(selectedStates, filteredData);
 }
 
 function resetFilters() {
-  const stateFilter = document.getElementById('stateFilter');
-  const sectorFilter = document.getElementById('sectorFilter');
-  const psuFilter = document.getElementById('psuFilter');
+  ['stateFilter', 'sectorFilter', 'psuFilter'].forEach(filterId => {
+    const select = document.getElementById(filterId);
+    if (select) {
+      Array.from(select.options).forEach(option => {
+        option.selected = option.value === "__ALL__";
+      });
+    }
+  });
   const companySearch = document.getElementById('companySearch');
-
-  stateFilter.querySelectorAll('option').forEach(opt => opt.selected = opt.value === '__ALL__');
-  sectorFilter.querySelectorAll('option').forEach(opt => opt.selected = opt.value === '__ALL__');
-  psuFilter.querySelectorAll('option').forEach(opt => opt.selected = true);
-  companySearch.value = '';
-
+  if (companySearch) companySearch.value = '';
   filteredData = [...rawData];
   currentPage = 1;
   updateDashboard();
-  updateMap();
+  updateFilterResults();
+  highlightMapStates([]);
+  // Clear map labels
+  labelSelectedStatesWithValues([], []);
 }
 
-function updateDashboard() {
-  updateStats();
-  updateCharts();
-  updateCompaniesTable();
-}
-
-function updateStats() {
-  const totalSpending = filteredData.reduce((sum, row) => sum + parseSpending(row["Project Amount Spent (In INR Cr.)"]), 0);
-  const totalProjects = filteredData.length;
-  const totalCompanies = new Set(filteredData.map(row => row['Company Name']?.trim())).size;
-  const avgPerProject = totalProjects > 0 ? totalSpending / totalProjects : 0;
-
-  document.getElementById('totalSpending').textContent = `₹${totalSpending.toLocaleString('en-IN', {maximumFractionDigits: 2})} Cr`;
-  document.getElementById('totalCompanies').textContent = totalCompanies.toLocaleString();
-  document.getElementById('totalProjects').textContent = totalProjects.toLocaleString();
-  document.getElementById('avgPerProject').textContent = `₹${avgPerProject.toLocaleString('en-IN', {maximumFractionDigits: 2})} Cr`;
-
-  document.getElementById('loadingOverlay').classList.add('hidden');
+function updateFilterResults() {
+  const filterResults = document.getElementById('filterResults');
+  if (filterResults) {
+    if (filteredData.length === rawData.length) {
+      filterResults.textContent = `Showing all ${filteredData.length.toLocaleString()} records`;
+      filterResults.className = 'filter-status';
+    } else {
+      filterResults.textContent = `Filtered: ${filteredData.length.toLocaleString()} of ${rawData.length.toLocaleString()} records`;
+      filterResults.className = 'filter-status filtered';
+    }
+  }
 }
 
 function parseSpending(value) {
-  if (!value || value.trim() === '') return 0;
-  const cleanedValue = value.replace(/[^0-9.]/g, '');
-  return parseFloat(cleanedValue) || 0;
+  if (!value || value === null || value === undefined) return 0;
+  const cleanValue = value.toString().replace(/[^0-9.-]/g, '');
+  const parsed = parseFloat(cleanValue);
+  return isNaN(parsed) ? 0 : parsed;
+}
+
+function updateDashboard() {
+  const loadingIndicator = document.getElementById('loadingIndicator');
+  if (loadingIndicator) loadingIndicator.style.display = 'none';
+  const mainDashboard = document.getElementById('mainDashboard');
+  if (mainDashboard) mainDashboard.style.display = 'block';
+  const totalSpending = filteredData.reduce((sum, row) => sum + parseSpending(row["Project Amount Spent (In INR Cr.)"]), 0);
+  const companies = new Set(filteredData.map(r => r['Company Name']).filter(name => name && name.trim()));
+  const canonicalStates = new Set(filteredData.map(r => canonicalStateName(r['CSR State'])).filter(state => state && state !== 'Unknown'));
+  const totalProjects = filteredData.length;
+  const avgPerProject = totalProjects > 0 ? totalSpending / totalProjects : 0;
+  const statesArray = Array.from(canonicalStates);
+  const statesLabel = formatStatesLabel(statesArray);
+  updateElement('totalCompaniesHeader', `${companies.size.toLocaleString('en-IN')} Companies`);
+  updateElement('totalStatesHeader', statesLabel);
+  updateElement('totalProjectsHeader', `${totalProjects.toLocaleString('en-IN')} Projects`);
+  updateElement('totalSpendingHeader', `₹${totalSpending.toLocaleString('en-IN', {maximumFractionDigits: 2})} Cr`);
+  updateElement('totalSpendingMetric', `₹${totalSpending.toLocaleString('en-IN', {maximumFractionDigits: 2})} Cr`);
+  updateElement('totalCompaniesMetric', companies.size.toLocaleString('en-IN'));
+  updateElement('totalProjectsMetric', totalProjects.toLocaleString('en-IN'));
+  updateElement('avgPerProjectMetric', `₹${avgPerProject.toLocaleString('en-IN', {maximumFractionDigits: 2})} Cr`);
+  updateStatesTable();
+  updateSectorsTable();
+  updateCompaniesTable();
+  updateCharts();
+}
+
+function updateElement(id, content) {
+  const element = document.getElementById(id);
+  if (element) element.textContent = content;
+}
+
+function updateStatesTable() {
+  const statesData = calculateStateData();
+  const tbody = document.getElementById('statesTableBody') || document.querySelector('#statesTable tbody');
+  if (!tbody) return;
+  tbody.innerHTML = statesData.map(state => `
+    <tr>
+      <td>${state.name}</td>
+      <td class="number">₹${state.spending.toLocaleString('en-IN', {maximumFractionDigits: 2})}</td>
+      <td class="number">${state.projects.toLocaleString('en-IN')}</td>
+      <td class="number">${state.companies.toLocaleString('en-IN')}</td>
+      <td class="number">₹${state.average.toLocaleString('en-IN', {maximumFractionDigits: 2})}</td>
+      <td class="number">${state.percentage.toFixed(2)}%</td>
+    </tr>
+  `).join('');
+  updateElement('statesCount', `${statesData.length} states/union territories`);
+}
+
+function updateSectorsTable() {
+  const sectorsData = calculateSectorData();
+  const tbody = document.getElementById('sectorsTableBody') || document.querySelector('#sectorsTable tbody');
+  if (!tbody) return;
+  tbody.innerHTML = sectorsData.map(sector => `
+    <tr>
+      <td>${sector.name}</td>
+      <td class="number">₹${sector.spending.toLocaleString('en-IN', {maximumFractionDigits: 2})}</td>
+      <td class="number">${sector.projects.toLocaleString('en-IN')}</td>
+      <td class="number">${sector.companies.toLocaleString('en-IN')}</td>
+      <td class="number">${sector.percentage.toFixed(2)}%</td>
+    </tr>
+  `).join('');
+  updateElement('sectorsCount', `${sectorsData.length} sectors`);
+}
+
+function updateCompaniesTable() {
+  const companiesData = calculateCompanyData();
+  const startIndex = (currentPage - 1) * rowsPerPage;
+  const endIndex = startIndex + rowsPerPage;
+  const pageData = companiesData.slice(startIndex, endIndex);
+  const tbody = document.getElementById('companiesTableBody') || document.querySelector('#companiesTable tbody');
+  if (!tbody) return;
+  tbody.innerHTML = pageData.map((company, index) => `
+    <tr>
+      <td class="number">${startIndex + index + 1}</td>
+      <td>${company.name}</td>
+      <td><span class="psu-type ${company.psuType.toLowerCase().replace(/[^a-z]/g, '')}">${company.psuType}</span></td>
+      <td>${company.state}</td>
+      <td>${company.sector}</td>
+      <td class="number">₹${company.spending.toLocaleString('en-IN', {maximumFractionDigits: 2})}</td>
+      <td class="number">${company.projects.toLocaleString('en-IN')}</td>
+    </tr>
+  `).join('');
+  updateElement('companyCount', `${companiesData.length.toLocaleString('en-IN')} companies`);
+  updatePagination(companiesData.length);
 }
 
 function calculateStateData() {
@@ -516,6 +618,7 @@ function updateCharts() {
   updateBarChart('companiesChart', 'companiesChartInstance', companiesData.slice(0, 20), 'CSR Spending Rankings: Top 20 Companies (Curated List)', '#084c61');
 }
 
+// Enhanced bar chart update: includes watermark, subtitles and datalabels
 function updateBarChart(canvasId, instanceVar, data, title, color) {
   const canvas = document.getElementById(canvasId);
   if (!canvas) return;
@@ -556,7 +659,7 @@ function updateBarChart(canvasId, instanceVar, data, title, color) {
           align: 'end',
           color: '#000',
           formatter: function(value) {
-            return '₹' + value.toLocaleString('en-IN', { maximumFractionDigits: 2 }) + ' Cr';
+            return value.toLocaleString('en-IN', { maximumFractionDigits: 2 }) ;
           },
           font: { weight: 'bold' }
         }
@@ -585,6 +688,7 @@ function updateBarChart(canvasId, instanceVar, data, title, color) {
   });
 }
 
+// CSV export helpers
 function exportFilteredData() { exportToCSV(filteredData, 'filtered_csr_data.csv'); }
 function exportStatesData() {
   const statesData = calculateStateData();
@@ -636,41 +740,6 @@ function exportToCSV(data, filename) {
     link.click();
     document.body.removeChild(link);
   }
-}
-
-function exportMapToPNG() {
-  const mapContainer = document.getElementById('indiaMap');
-  const svgElement = mapContainer.querySelector('svg');
-  if (!svgElement) return;
-
-  const serializer = new XMLSerializer();
-  let svgString = serializer.serializeToString(svgElement);
-  svgString = svgString.replace(/<svg/, `<svg xmlns="http://www.w3.org/2000/svg"`);
-
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
-  const img = new Image();
-
-  canvas.width = mapContainer.offsetWidth;
-  canvas.height = mapContainer.offsetHeight;
-
-  const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
-  const url = URL.createObjectURL(svgBlob);
-
-  img.onload = function () {
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    URL.revokeObjectURL(url);
-
-    canvas.toBlob(function (blob) {
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = 'india_csr_map.png';
-      link.click();
-      URL.revokeObjectURL(link.href);
-    });
-  };
-
-  img.src = url;
 }
 
 // Map coordinate positions for value labels
@@ -731,47 +800,16 @@ function labelSelectedStatesWithValues(selectedStates, filteredData) {
     if (coords && val) {
       const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
       text.setAttribute("x", coords[0]);
-      text.setAttribute("y", coords[1] - 10);
+      text.setAttribute("y", coords[1]);
       text.setAttribute("class", "map-label");
       text.setAttribute("text-anchor", "middle");
       text.setAttribute("font-size", "14");
       text.setAttribute("fill", "#333");
       text.setAttribute("stroke", "white");
       text.setAttribute("stroke-width", "0.5");
-      text.textContent = state;
+      text.textContent = `₹${val} Cr`;
       svg.appendChild(text);
-      const valueText = document.createElementNS("http://www.w3.org/2000/svg", "text");
-      valueText.setAttribute("x", coords[0]);
-      valueText.setAttribute("y", coords[1] + 10);
-      valueText.setAttribute("class", "map-label");
-      valueText.setAttribute("text-anchor", "middle");
-      valueText.setAttribute("font-size", "14");
-      valueText.setAttribute("fill", "#333");
-      valueText.setAttribute("stroke", "white");
-      valueText.setAttribute("stroke-width", "0.5");
-      valueText.textContent = `₹${val} Cr`;
-      svg.appendChild(valueText);
     }
   });
 }
-
-function initializeEventListeners() {
-  const downloadButtons = document.querySelectorAll('.chart-download-btn');
-  downloadButtons.forEach(button => {
-    button.addEventListener('click', () => {
-      const chartId = button.getAttribute('data-chart');
-      if (chartId) {
-        const chart = window[`${chartId}Instance`];
-        if (chart) {
-          const url = chart.toBase64Image();
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = `${chartId}.png`;
-          link.click();
-        }
-      }
-    });
-  });
-}
-
 console.log("Enhanced dashboard script loaded successfully");
