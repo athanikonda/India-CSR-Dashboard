@@ -807,7 +807,7 @@ function labelSelectedStatesWithValues(selectedStates, filteredData) {
       text.setAttribute("fill", "#333");
       text.setAttribute("stroke", "white");
       text.setAttribute("stroke-width", "0.5");
-      text.textContent = `₹${val} Cr`;
+      text.textContent = `{val}`;
       svg.appendChild(text);
     }
   });
