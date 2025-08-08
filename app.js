@@ -8,8 +8,6 @@
 // in your HTML. Example:
 // <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 // <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
-const customWatermark = { ... }
-function registerChartPlugins() { ... }
 
 console.log("Initializing enhanced dashboard...");
 
@@ -56,15 +54,13 @@ function registerChartPlugins() {
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
-  registerChartPlugins();                    // <-- new
+  registerChartPlugins();
   await loadFullDataset();
   initializeTabs();
   initializeFilters();
   initializeEventListeners();
   updateDashboard();
-  loadIndiaMap();
-  addMapTitleAndSubtitle();                 // <-- new
-  document.getElementById('downloadMapBtn')?.addEventListener('click', exportMapAsPNG); // <-- new
+  loadIndiaMap(); // Load the SVG map
 });
 
 // UPDATED: State name canonicalization with SVG spellings
@@ -131,93 +127,6 @@ function getSelectedFiltersSummary() {
     parts.push(`Company: ${companySearchInput.value.trim()}`);
   }
   return parts.join(' | ');
-}
-
-function addMapTitleAndSubtitle() {
-  const mapTab = document.querySelector('#map');
-  if (!mapTab.querySelector('.data-header')) {
-    const headerDiv = document.createElement('div');
-    headerDiv.className = 'data-header';
-    headerDiv.innerHTML = `
-      <h2>India CSR Spending Map</h2>
-      <p class="data-description">Interactive map showing CSR spending by state with current filters</p>
-      <p id="mapFilterSummary" style="font-size: 0.875rem; font-weight: 500; color: var(--color-text-secondary); font-style: italic;"></p>
-      <button id="downloadMapBtn" class="btn btn--outline btn--sm" style="margin-top: 8px;">📥 Download PNG</button>
-    `;
-    mapTab.prepend(headerDiv);
-  }
-}
-
-function labelSelectedStatesWithValues(selectedStates, filteredData) {
-  const mapContainer = document.querySelector('#indiaMap');
-  if (!mapContainer) return;
-
-  const existingLabels = mapContainer.querySelectorAll('.map-label');
-  existingLabels.forEach(label => label.remove());
-
-  const stateTotals = {};
-  selectedStates.forEach(state => {
-    stateTotals[state] = 0;
-  });
-
-  filteredData.forEach(row => {
-    const state = canonicalStateName(row['CSR State']);
-    if (stateTotals.hasOwnProperty(state)) {
-      stateTotals[state] += parseSpending(row['Project Amount Spent (In INR Cr.)']);
-    }
-  });
-
-  const paths = mapContainer.querySelectorAll('path');
-  paths.forEach(p => {
-    const stateName = p.getAttribute('name');
-    if (stateTotals[stateName] !== undefined) {
-      const label = document.createElement('div');
-      label.className = 'map-label';
-      label.innerText = `${stateName}\n₹${stateTotals[stateName].toLocaleString('en-IN', {maximumFractionDigits: 1})} Cr`;
-      const bbox = p.getBBox();
-      label.style.position = 'absolute';
-      label.style.left = (bbox.x + bbox.width / 2) + 'px';
-      label.style.top = (bbox.y + bbox.height / 2) + 'px';
-      label.style.fontSize = '11px';
-      label.style.fontFamily = 'var(--font-family-base)';
-      label.style.pointerEvents = 'none';
-      label.style.textAlign = 'center';
-      label.style.color = '#000';
-      mapContainer.appendChild(label);
-    }
-  });
-}
-
-function exportMapAsPNG() {
-  const mapContainer = document.getElementById('indiaMap');
-  if (!mapContainer) return;
-  const svg = mapContainer.querySelector('svg');
-  if (!svg) return;
-
-  const svgData = new XMLSerializer().serializeToString(svg);
-  const canvas = document.createElement('canvas');
-  canvas.width = 1000;
-  canvas.height = 1000;
-  const ctx = canvas.getContext('2d');
-  const img = new Image();
-  img.onload = function () {
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(img, 0, 0);
-    ctx.fillStyle = '#00000044';
-    ctx.font = '12px sans-serif';
-    ctx.fillText('Prepared by Ashok Thanikonda', 800, 980);
-    const a = document.createElement('a');
-    a.href = canvas.toDataURL('image/png');
-    a.download = 'india_csr_map.png';
-    a.click();
-  };
-  img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
-}
-
-function updateMapFiltersDisplay() {
-  const mapSummary = document.getElementById('mapFilterSummary');
-  if (mapSummary) mapSummary.textContent = getSelectedFiltersSummary();
 }
 
 async function loadFullDataset() {
