@@ -6,7 +6,6 @@
     <title>India CSR Spending Dashboard - FY 2023-24 (Complete Dataset)</title>
     <link rel="stylesheet" href="style.css">
     <!-- Chart.js and datalabels plugin -->
-    <script src="map-enhancements.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -157,47 +156,22 @@
                     </div>
                     -->
                     
-<section class="map-section">
-  <div class="chart-header">
-    <div>
-      <h3 class="chart-title" id="mapTitle">CSR Spending by States/UTs in India</h3>
-      <p class="chart-subtitle" id="mapSubtitle">Interactive visualization showing CSR expenditure across Indian states and union territories</p>
+<div class="map-section">
+    <div class="map-container">
+        <!-- SVG will be loaded here dynamically -->
+        <div id="indiaMap"></div>
+        
+        <!-- Map tooltip -->
+        <div id="mapTooltip" class="map-tooltip">
+            <div class="tooltip-content">
+                <strong id="tooltipState">State</strong><br>
+                <span id="tooltipSpending">Spending: ₹0 Cr</span><br>
+                <span id="tooltipProjects">Projects: 0</span><br>
+                <span id="tooltipCompanies">Companies: 0</span>
+            </div>
+        </div>
     </div>
-    <div class="map-export-controls">
-      <button class="map-export-btn" id="exportMapSvg" aria-label="Export map as SVG">
-        📊 Export SVG
-      </button>
-      <button class="map-export-btn" id="exportMapPng" aria-label="Export map as PNG">
-        🖼️ Export PNG
-      </button>
-    </div>
-  </div>
-  
-  <!-- Applied filters display -->
-  <div class="applied-filters-section" id="appliedFiltersMap">
-    <h4 class="applied-filters-title">Applied Filters:</h4>
-    <ul class="applied-filters-list" id="appliedFiltersList">
-      <li class="no-filters-text">No filters applied</li>
-    </ul>
-  </div>
-  
-  <div class="map-container">
-    <div id="indiaMap"></div>
-    
-    <!-- Preserved your existing tooltip structure -->
-    <div id="mapTooltip" class="map-tooltip">
-      <div class="tooltip-content">
-        <strong id="tooltipState">State</strong><br>
-        <span id="tooltipSpending">Spending: ₹0 Cr</span><br>
-        <span id="tooltipProjects">Projects: 0</span><br>
-        <span id="tooltipCompanies">Companies: 0</span>
-      </div>
-    </div>
-    
-    <!-- Watermark -->
-    <div class="map-watermark">© Your Organization Name</div>
-  </div>
-</section>
+</div>
 
                 <!-- States Tab -->
                 <div id="states" class="tab-content">
