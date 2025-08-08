@@ -659,7 +659,7 @@ function updateBarChart(canvasId, instanceVar, data, title, color) {
           align: 'end',
           color: '#000',
           formatter: function(value) {
-            return '₹' + value.toLocaleString('en-IN', { maximumFractionDigits: 2 }) + ' Cr';
+            return value.toLocaleString('en-IN', { maximumFractionDigits: 2 }) ;
           },
           font: { weight: 'bold' }
         }
@@ -807,7 +807,7 @@ function labelSelectedStatesWithValues(selectedStates, filteredData) {
       text.setAttribute("fill", "#333");
       text.setAttribute("stroke", "white");
       text.setAttribute("stroke-width", "0.5");
-      text.textContent = `{val}`;
+      text.textContent = `₹${val} Cr`;
       svg.appendChild(text);
     }
   });
