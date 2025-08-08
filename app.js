@@ -812,5 +812,167 @@ function labelSelectedStatesWithValues(selectedStates, filteredData) {
     }
   });
 }
+// Full code starts
+document.addEventListener("DOMContentLoaded", function () {
+  loadIndiaMap();
+  loadDropdowns();
+  fetchAndRenderData();
+});
+
+function loadIndiaMap() {
+  const mapContainer = document.getElementById("indiaMap");
+  mapContainer.innerHTML = ""; // Clear existing SVG
+
+  const width = mapContainer.offsetWidth;
+  const height = 500;
+
+  const svg = d3
+    .select("#indiaMap")
+    .append("svg")
+    .attr("width", width)
+    .attr("height", height);
+
+  const projection = d3
+    .geoMercator()
+    .scale(1000)
+    .translate([width / 2, height / 1.5]);
+
+  const path = d3.geoPath().projection(projection);
+
+  d3.json("https://cdn.jsdelivr.net/npm/india-geojson@1.0.1/india-states.json").then(function (indiaMapData) {
+    const stateWiseData = getFilteredStateWiseData();
+
+    svg
+      .selectAll(".state-path")
+      .data(indiaMapData.features)
+      .enter()
+      .append("path")
+      .attr("class", "state-path")
+      .attr("d", path)
+      .attr("fill", function (d) {
+        const stateName = d.properties.name;
+        const amount = stateWiseData[stateName] || 0;
+        return amount > 0 ? "#7cb5ec" : "#e0e0e0";
+      })
+      .attr("stroke", "#ffffff")
+      .attr("stroke-width", 1)
+      .on("mouseover", function (event, d) {
+        const stateName = d.properties.name;
+        const amount = stateWiseData[stateName] || 0;
+
+        const tooltip = document.getElementById("mapTooltip");
+        tooltip.innerHTML = `<strong>${stateName}</strong><br>₹ ${amount.toFixed(2)} Cr`;
+        tooltip.style.display = "block";
+        tooltip.style.left = event.pageX + 10 + "px";
+        tooltip.style.top = event.pageY + 10 + "px";
+      })
+      .on("mousemove", function (event) {
+        const tooltip = document.getElementById("mapTooltip");
+        tooltip.style.left = event.pageX + 10 + "px";
+        tooltip.style.top = event.pageY + 10 + "px";
+      })
+      .on("mouseout", function () {
+        const tooltip = document.getElementById("mapTooltip");
+        tooltip.style.display = "none";
+      });
+
+    // 🔵 Add State Labels on the Map
+    indiaMapData.features.forEach(function (d) {
+      const stateName = d.properties.name;
+      const amount = stateWiseData[stateName] || 0;
+
+      if (amount > 0) {
+        const centroid = path.centroid(d);
+        svg
+          .append("text")
+          .attr("x", centroid[0])
+          .attr("y", centroid[1])
+          .attr("text-anchor", "middle")
+          .attr("class", "map-label")
+          .style("font-size", "10px")
+          .style("fill", "#000000")
+          .text(`${stateName} ₹${amount.toFixed(1)} Cr`);
+      }
+    });
+
+    // 🔵 Add Export Button for Map (if not already present)
+    if (!document.getElementById("mapExportBtn")) {
+      const exportBtn = document.createElement("button");
+      exportBtn.id = "mapExportBtn";
+      exportBtn.className = "chart-download-btn";
+      exportBtn.innerText = "Export Map";
+      exportBtn.onclick = function () {
+        html2canvas(document.querySelector("#indiaMap")).then(canvas => {
+          const link = document.createElement("a");
+          link.download = "India_CSR_Map.png";
+          link.href = canvas.toDataURL();
+          link.click();
+        });
+      };
+      document.getElementById("indiaMap").appendChild(exportBtn);
+    }
+  });
+}
+
+function getFilteredStateWiseData() {
+  const stateWiseData = {};
+  const rows = window.filteredData || [];
+
+  rows.forEach((row) => {
+    const state = row["CSR State"];
+    const amount = parseFloat(row["Project Amount Spent (In INR Cr.)"]) || 0;
+    if (state) {
+      stateWiseData[state] = (stateWiseData[state] || 0) + amount;
+    }
+  });
+
+  return stateWiseData;
+}
+
+function loadDropdowns() {
+  // original dropdown loading code
+}
+
+function fetchAndRenderData() {
+  fetch(
+    "https://docs.google.com/spreadsheets/d/e/2PACX-1vRaDCGxkQyoqBF6_genJT1KztlWoeY8cNLMlIRSlSKSvRLidz_449ZFzbrO0sCQFf9HGiYdySFa8weC/pub?output=csv"
+  )
+    .then((response) => response.text())
+    .then((csvText) => {
+      const data = Papa.parse(csvText, {
+        header: true,
+        skipEmptyLines: true,
+      }).data;
+      window.originalData = data;
+      window.filteredData = data;
+      applyFiltersAndUpdate();
+    });
+}
+
+function applyFiltersAndUpdate() {
+  const fy = document.getElementById("fy").value;
+  const sector = document.getElementById("sector").value;
+  const subSector = document.getElementById("sub-sector").value;
+  const companyType = document.getElementById("company-type").value;
+  const companyName = document.getElementById("company-name").value;
+
+  window.filteredData = window.originalData.filter((row) => {
+    return (
+      (fy === "" || row["Financial Year"] === fy) &&
+      (sector === "" || row["CSR Development Sector"] === sector) &&
+      (subSector === "" || row["CSR Sub Development Sector"] === subSector) &&
+      (companyType === "" || row["PSU/Non-PSU"] === companyType) &&
+      (companyName === "" || row["Company Name"] === companyName)
+    );
+  });
+
+  loadIndiaMap();
+  renderCharts(window.filteredData);
+  updateTable(window.filteredData);
+}
+
+// renderCharts, updateTable, renderSummaryStats, and other dashboard functions assumed to follow...
+
+// Full code ends
 
 console.log("Enhanced dashboard script loaded successfully");
