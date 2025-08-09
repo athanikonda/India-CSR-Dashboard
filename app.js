@@ -77,13 +77,25 @@ function registerChartPlugins() {
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
-  registerChartPlugins();
+  registerChartPlugins && registerChartPlugins();
   await loadFullDataset();
-  initializeTabs();
-  initializeFilters();
-  initializeEventListeners();
-  updateDashboard();
-  console.debug('applyFilters:', {filtered: filteredData.length, selectedStates});
+  initializeTabs && initializeTabs();
+  initializeFilters && initializeFilters();
+  initializeEventListeners && initializeEventListeners();
+
+  // Compute initial selected states safely
+  const stateSel = document.getElementById('stateFilter');
+  const selValues = Array.from(stateSel?.selectedOptions || []).map(o => o.value);
+  const showAllStates = selValues.includes('__ALL__');
+  const selectedStates = showAllStates
+    ? [] // treat __ALL__ as no specific selection => top-10 fallback will kick in
+    : selValues.filter(v => v !== '__ALL__');
+
+  await loadIndiaMap(); // ensure SVG is in the DOM before labeling
+  highlightMapStates && highlightMapStates(selectedStates);
+  labelSelectedStatesWithValues && labelSelectedStatesWithValues(selectedStates, filteredData);
+  setMapSubtitleAndFilters && setMapSubtitleAndFilters();
+});
   await loadIndiaMap(); // Load the SVG map
   setMapSubtitleAndFilters();
 });
