@@ -2572,35 +2572,3 @@ select.form-control {
   pointer-events: none;
   font-family: var(--font-family-base);
 }
-
-/* === Map additions === */
-.map-watermark {
-  position: absolute;
-  right: 12px;
-  bottom: 12px;
-  opacity: 0.15;
-  font-size: var(--font-size-sm);
-  font-family: var(--font-family-base);
-  color: var(--color-text);
-  pointer-events: none;
-  user-select: none;
-}
-
-.map-label {
-  font-family: var(--font-family-base);
-  font-size: 11px;
-  text-anchor: middle;
-  dominant-baseline: middle;
-  fill: var(--color-text);
-  paint-order: stroke;
-  stroke: rgba(255,255,255,0.8);
-  stroke-width: 2px;
-}
-
-.map-label .value {
-  font-weight: var(--font-weight-semibold);
-}
-
-.map-label-muted {
-  opacity: 0.6;
-}
