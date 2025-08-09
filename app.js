@@ -83,6 +83,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   initializeFilters();
   initializeEventListeners();
   updateDashboard();
+  console.debug('applyFilters:', {filtered: filteredData.length, selectedStates});
   await loadIndiaMap(); // Load the SVG map
   setMapSubtitleAndFilters();
 });
@@ -339,6 +340,7 @@ function initializeEventListeners() {
   document.getElementById('exportSectorsData')?.addEventListener('click', exportSectorsData);
   document.getElementById('exportCompaniesData')?.addEventListener('click', exportCompaniesData);
   initializeChartDownloads();
+  document.getElementById('exportMapPng')?.addEventListener('click', exportMapAsPNG);
 }
 
 function initializeChartDownloads() {
@@ -384,29 +386,38 @@ function downloadChart(chartId) {
   }
 }
 
+
 function applyFilters() {
   const stateFilter = Array.from(document.getElementById('stateFilter')?.selectedOptions || []).map(o => o.value);
   const sectorFilter = Array.from(document.getElementById('sectorFilter')?.selectedOptions || []).map(o => o.value);
   const psuFilter = Array.from(document.getElementById('psuFilter')?.selectedOptions || []).map(o => o.value);
-  const companySearch = document.getElementById('companySearch')?.value.toLowerCase() || '';
-  const showAllStates = stateFilter.includes("__ALL__");
-  const showAllSectors = sectorFilter.includes("__ALL__");
-  const showAllPSU = psuFilter.includes("__ALL__");
+  const companySearch = (document.getElementById('companySearch')?.value || '').toLowerCase();
+
+  const showAllStates = stateFilter.includes('__ALL__');
+  const showAllSectors = sectorFilter.includes('__ALL__');
+  const showAllPSU = psuFilter.includes('__ALL__');
+
   filteredData = rawData.filter(row => {
     const canonicalState = canonicalStateName(row['CSR State']);
     const stateMatch = showAllStates || stateFilter.includes(canonicalState);
     const sectorMatch = showAllSectors || sectorFilter.includes(row['CSR Development Sector']);
     const psuMatch = showAllPSU || psuFilter.includes(row['PSU/Non-PSU']);
-    const companyMatch = !companySearch || row['Company Name']?.toLowerCase().includes(companySearch);
+    const companyMatch = !companySearch || (row['Company Name'] || '').toLowerCase().includes(companySearch);
     return stateMatch && sectorMatch && psuMatch && companyMatch;
   });
+
   currentPage = 1;
   updateDashboard();
   updateFilterResults();
-  const selectedStates = showAllStates ? Array.from(new Set(rawData.map(r => canonicalStateName(r['CSR State'])))) : stateFilter.filter(s => s !== "__ALL__");
+
+  const selectedStates = showAllStates
+    ? Array.from(new Set(rawData.map(r => canonicalStateName(r['CSR State']))))
+    : stateFilter.filter(s => s !== '__ALL__');
+
   highlightMapStates(selectedStates);
-  // Update map value labels
   labelSelectedStatesWithValues(selectedStates, filteredData);
+  setMapSubtitleAndFilters();
+  console.debug('applyFilters:', { filtered: filteredData.length, selectedStates });
 }
 
 function resetFilters() {
@@ -423,6 +434,7 @@ function resetFilters() {
   filteredData = [...rawData];
   currentPage = 1;
   updateDashboard();
+  console.debug('applyFilters:', {filtered: filteredData.length, selectedStates});
   updateFilterResults();
   highlightMapStates([]);
   // Clear map labels
