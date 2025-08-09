@@ -796,8 +796,11 @@ const stateCoordinates = {
 function labelSelectedStatesWithValues(selectedStates, filteredData) {
   const svgRoot = document.querySelector('#indiaMap svg');
   if (!svgRoot) return;
+
+  // clear old labels
   svgRoot.querySelectorAll('.map-label').forEach(e => e.remove());
 
+  // totals
   const totals = {};
   filteredData.forEach(row => {
     const s = canonicalStateName(row["CSR State"]);
@@ -806,29 +809,39 @@ function labelSelectedStatesWithValues(selectedStates, filteredData) {
     totals[k] = (totals[k] || 0) + v;
   });
 
+  if (!stateCenters || Object.keys(stateCenters).length === 0) {
+    computeStateCenters();
+  }
+
+  const baseFont = (typeof getBaseFont === 'function') ? getBaseFont() : '"Inter", sans-serif';
+
   selectedStates.forEach(state => {
     const k = normKey(state);
     const center = stateCenters[state] || stateCenters[k];
     const val = totals[k];
-    if (!center || val == null) return;
+    if (!center || val == null || isNaN(center.x) || isNaN(center.y)) return;
 
     const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
     text.setAttribute("class", "map-label");
     text.setAttribute("x", center.x);
     text.setAttribute("y", center.y);
     text.setAttribute("text-anchor", "middle");
-    text.setAttribute("font-size", "12");
-    text.setAttribute("fill", "#f8fafc");
-    text.setAttribute("stroke", "#0f172a");
-    text.setAttribute("stroke-width", "0.5");
+    text.setAttribute("style", "paint-order: stroke fill; stroke: rgba(255,255,255,.55); stroke-width: .9px;");
 
     const nameT = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
+    nameT.setAttribute("font-family", baseFont);
+    nameT.setAttribute("font-size", "11px");
+    nameT.setAttribute("font-weight", "600");
+    nameT.setAttribute("fill", "#000");  // black state name
     nameT.setAttribute("x", center.x);
     nameT.setAttribute("dy", "0");
-    nameT.setAttribute("font-weight", "bold");
     nameT.textContent = state;
 
     const valueT = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
+    valueT.setAttribute("font-family", baseFont);
+    valueT.setAttribute("font-size", "11px");
+    valueT.setAttribute("font-weight", "600");
+    valueT.setAttribute("fill", "#fff"); // white value
     valueT.setAttribute("x", center.x);
     valueT.setAttribute("dy", "1.2em");
     valueT.textContent = `₹${val.toFixed(2)} Cr`;
@@ -837,7 +850,8 @@ function labelSelectedStatesWithValues(selectedStates, filteredData) {
     text.appendChild(valueT);
     svgRoot.appendChild(text);
   });
-  // ensure watermark sits above labels
+
+  // keep watermark above labels
   addMapWatermark();
 }
 
@@ -865,17 +879,35 @@ function computeStateCenters() {
   stateCenters = {};
   const svg = document.querySelector('#indiaMap svg');
   if (!svg) return;
+
+  // Prefer explicit label_points
+  const lp = svg.querySelector('#label_points');
+  if (lp) {
+    lp.querySelectorAll('circle[id][cx][cy]').forEach(c => {
+      const sid = c.getAttribute('id');
+      const cx = parseFloat(c.getAttribute('cx'));
+      const cy = parseFloat(c.getAttribute('cy'));
+      if (sid && !isNaN(cx) && !isNaN(cy)) {
+        stateCenters[sid] = { x: cx, y: cy };
+        stateCenters[normKey(sid)] = { x: cx, y: cy };
+      }
+    });
+  }
+
+  // Fallback: compute from geometry with optional offsets
   const nodes = svg.querySelectorAll('path[id], g[id]');
   nodes.forEach(el => {
-    const id = el.getAttribute('id');
-    if (!id) return;
+    const sid = el.getAttribute('id');
+    if (!sid) return;
     const bb = el.getBBox();
     let cx = bb.x + bb.width / 2;
     let cy = bb.y + bb.height / 2;
-    const off = STATE_LABEL_OFFSETS[id];
+    const off = STATE_LABEL_OFFSETS[sid];
     if (off) { cx += (off.dx || 0); cy += (off.dy || 0); }
-    stateCenters[id] = { x: cx, y: cy };
-    stateCenters[normKey(id)] = { x: cx, y: cy };
+    if (!stateCenters[sid]) {
+      stateCenters[sid] = { x: cx, y: cy };
+      stateCenters[normKey(sid)] = { x: cx, y: cy };
+    }
   });
 }
 function updateMapHeader(){
@@ -900,32 +932,27 @@ function updateMapHeader(){
 function addMapWatermark(){
   const svg = document.querySelector('#indiaMap svg');
   if (!svg) return;
-  // remove any existing watermark
   const existing = svg.querySelector('.map-watermark');
   if (existing) existing.remove();
 
-  // place roughly between Andhra Pradesh and Andaman islands
   const width = (svg.viewBox && svg.viewBox.baseVal) ? svg.viewBox.baseVal.width : (parseFloat(svg.getAttribute('width')) || 1000);
   const height = (svg.viewBox && svg.viewBox.baseVal) ? svg.viewBox.baseVal.height : (parseFloat(svg.getAttribute('height')) || 1000);
 
-  // tuned position for this map
-  const x = Math.min(width - 200, 740);
-  const y = Math.min(height - 120, 820);
+  // tuned to sit in the sea between Andhra Pradesh and Andaman
+  const x = 700;
+  const y = 860;
 
   const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+  const baseFont = (typeof getBaseFont === 'function') ? getBaseFont() : '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
   text.setAttribute('x', String(x));
   text.setAttribute('y', String(y));
   text.setAttribute('text-anchor', 'middle');
   text.setAttribute('class', 'map-watermark');
-
-  // typography
-  const baseFont = (typeof getBaseFont === 'function') ? getBaseFont() : '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
   text.setAttribute('font-family', baseFont);
   text.setAttribute('font-size', '13');
   text.setAttribute('font-weight', '600');
   text.setAttribute('fill', '#000');
-  text.setAttribute('opacity', '0.25'); // slightly stronger so it’s visible
-
+  text.setAttribute('opacity', '0.25');
   text.textContent = 'Prepared by Ashok Thanikonda';
   svg.appendChild(text);
 }
@@ -1008,4 +1035,10 @@ function downloadMap(){
     document.body.removeChild(a);
   };
   img.src = svgUrl;
+}
+
+// Resolve CSS variable to a concrete font stack for SVG attributes
+function getBaseFont() {
+  const v = getComputedStyle(document.documentElement).getPropertyValue('--font-family-base').trim();
+  return v || '"FKGroteskNeue","Geist","Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif';
 }
