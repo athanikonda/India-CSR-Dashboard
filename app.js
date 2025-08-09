@@ -827,12 +827,19 @@ function labelSelectedStatesWithValues(selectedStates, filteredData) {
     text.setAttribute("stroke-width", "0.5");
 
     const nameT = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
+    nameT.setAttribute("font-family", "var(--font-family-base)");
+    nameT.setAttribute("font-size", "10px");
+    nameT.setAttribute("fill", "#000");
     nameT.setAttribute("x", center.x);
     nameT.setAttribute("dy", "0");
     nameT.setAttribute("font-weight", "bold");
     nameT.textContent = state;
 
     const valueT = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
+    valueT.setAttribute("font-family", "var(--font-family-base)");
+    valueT.setAttribute("font-size", "10px");
+    valueT.setAttribute("fill", "#000");
+    valueT.setAttribute("font-weight", "bold");
     valueT.setAttribute("x", center.x);
     valueT.setAttribute("dy", "1.2em");
     valueT.textContent = `₹${val.toFixed(2)} Cr`;
