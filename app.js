@@ -901,28 +901,22 @@ function computeStateCenters() {
   }
 
   // Fallback: compute from geometry with optional offsets
-  const nodes = svg.querySelectorAll('path[id], g[id]');
-  nodes.forEach(el => {
-    const sid = el.getAttribute('id');
-    if (!sid) return;
-    const bb = el.getBBox();
-    let cx = bb.x + bb.width / 2;
-    let cy = bb.y + bb.height / 2;
-    const off = STATE_LABEL_OFFSETS[sid];
-    if (off) { cx += (off.dx || 0); cy += (off.dy || 0); }
-    // do not override label_points if already set
-    if (!stateCenters[sid]) {
-      stateCenters[sid] = { x: cx, y: cy };
-      stateCenters[normKey(sid)] = { x: cx, y: cy };
-    }
-  });
-}    
-
-if (!stateCenters[sid]) {
-  stateCenters[sid] = { x: cx, y: cy };
-  stateCenters[normKey(sid)] = { x: cx, y: cy };
-}
-
+const nodes = svg.querySelectorAll('path[id], g[id]');
+nodes.forEach(el => {
+  const sid = el.getAttribute('id');
+  if (!sid) return;
+  const bb = el.getBBox();
+  let cx = bb.x + bb.width / 2;
+  let cy = bb.y + bb.height / 2;
+  const off = STATE_LABEL_OFFSETS[sid];
+  if (off) { cx += (off.dx || 0); cy += (off.dy || 0); }
+  // do not override label_points if already set
+  if (!stateCenters[sid]) {
+    stateCenters[sid] = { x: cx, y: cy };
+    stateCenters[normKey(sid)] = { x: cx, y: cy };
+  }
+});
+} // end of computeStateCenters
 
 function updateMapHeader(){
   const subtitleEl = document.getElementById('mapSubtitle');
