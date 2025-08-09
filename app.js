@@ -61,7 +61,53 @@ document.addEventListener("DOMContentLoaded", async () => {
   initializeEventListeners();
   updateDashboard();
   loadIndiaMap(); // Load the SVG map
+  setMapSubtitleAndFilters();
 });
+function exportMapAsPNG() {
+  const svg = document.querySelector('#indiaMap svg');
+  if (!svg) return;
+
+  const serializer = new XMLSerializer();
+  const svgString = serializer.serializeToString(svg);
+
+  const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+  const url = URL.createObjectURL(svgBlob);
+
+  const img = new Image();
+  img.onload = () => {
+    const canvas = document.createElement('canvas');
+    // Use the SVG viewBox to size the canvas cleanly
+    const vb = svg.viewBox.baseVal;
+    const width = vb && vb.width ? vb.width : svg.clientWidth || 1000;
+    const height = vb && vb.height ? vb.height : svg.clientHeight || 1000;
+    canvas.width = width;
+    canvas.height = height;
+
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, width, height);
+
+    // Also draw the HTML watermark if present
+    const wm = document.querySelector('.map-watermark');
+    if (wm) {
+      ctx.globalAlpha = 0.15;
+      ctx.font = '12px ' + getComputedStyle(document.documentElement).getPropertyValue('--font-family-base').trim();
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'bottom';
+      ctx.fillStyle = '#000';
+      ctx.fillText(wm.textContent || '', width - 12, height - 12);
+      ctx.globalAlpha = 1;
+    }
+
+    const link = document.createElement('a');
+    link.download = 'india_csr_map.png';
+    link.href = canvas.toDataURL('image/png', 1.0);
+    link.click();
+
+    URL.revokeObjectURL(url);
+  };
+  img.onerror = () => URL.revokeObjectURL(url);
+  img.src = url;
+}
 
 // UPDATED: State name canonicalization with SVG spellings
 function canonicalStateName(name) {
@@ -171,6 +217,109 @@ async function loadIndiaMap() {
     }
   } catch (error) {
     console.error("Error loading India map:", error);
+  }
+}
+function ensureSvgLayers() {
+  const svgRoot = document.querySelector('#indiaMap svg');
+  if (!svgRoot) return null;
+  let labelsLayer = svgRoot.querySelector('#labelsLayer');
+  if (!labelsLayer) {
+    labelsLayer = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    labelsLayer.setAttribute('id', 'labelsLayer');
+    labelsLayer.setAttribute('pointer-events', 'none');
+    svgRoot.appendChild(labelsLayer);
+  }
+  return labelsLayer;
+}
+function getElementCenter(el) {
+  // Accepts <path> or <g>
+  const bbox = el.getBBox();
+  return { x: bbox.x + bbox.width / 2, y: bbox.y + bbox.height / 2 };
+}
+function labelSelectedStatesWithValues(selectedStates, data) {
+  const svgRoot = document.querySelector('#indiaMap svg');
+  if (!svgRoot) return;
+  const labelsLayer = ensureSvgLayers();
+  if (!labelsLayer) return;
+
+  // Clear existing labels
+  labelsLayer.innerHTML = '';
+
+  // Aggregate totals by canonical state from current filtered data
+  const totals = new Map();
+  data.forEach(row => {
+    const state = canonicalStateName(row['CSR State']);
+    const amt = parseSpending(row['Project Amount Spent (In INR Cr.)']);
+    totals.set(state, (totals.get(state) || 0) + amt);
+  });
+
+  // If no specific selection (i.e., All), auto-pick top 10 by spending to avoid clutter
+  let targetStates = selectedStates && selectedStates.length
+    ? selectedStates
+    : Array.from(totals.entries())
+        .sort((a,b) => b[1] - a[1])
+        .slice(0, 10)
+        .map(([name]) => name);
+
+  // Draw labels
+  targetStates.forEach(stateName => {
+    // Find a <path> or <g> representing this state by id/name
+    let el = svgRoot.querySelector(`path[name="${stateName}"]`) ||
+             svgRoot.querySelector(`g[id="${stateName}"]`) ||
+             svgRoot.getElementById?.(stateName);
+
+    if (!el) return;
+    const { x, y } = getElementCenter(el);
+
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    g.setAttribute('class', 'map-label');
+
+    const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    label.setAttribute('x', x);
+    label.setAttribute('y', y - 8); // name slightly above
+
+    const nameTspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+    nameTspan.textContent = stateName;
+    label.appendChild(nameTspan);
+
+    const value = totals.get(stateName) || 0;
+    const valText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    valText.setAttribute('x', x);
+    valText.setAttribute('y', y + 10); // value slightly below
+
+    const valueTspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+    valueTspan.setAttribute('class', 'value');
+    valueTspan.textContent = `₹${value.toLocaleString('en-IN', { maximumFractionDigits: 2 })} Cr`;
+    valText.appendChild(valueTspan);
+
+    // Dim labels that are not explicitly selected when showing top 10 by default
+    if (!selectedStates || selectedStates.length === 0) {
+      g.classList.add('map-label-muted');
+    }
+
+    g.appendChild(label);
+    g.appendChild(valText);
+    labelsLayer.appendChild(g);
+  });
+
+  // Update map subtitle & filters-applied line every time we (re)label
+  setMapSubtitleAndFilters();
+}
+function setMapSubtitleAndFilters() {
+  const mapTitleEl = document.getElementById('mapTitle');
+  const mapSubtitleEl = document.getElementById('mapSubtitle');
+  const mapFiltersEl = document.getElementById('mapFiltersApplied');
+
+  if (mapTitleEl) mapTitleEl.textContent = 'India CSR Spending Map';
+
+  const summary = getSelectedFiltersSummary(); // already in your code
+  if (mapSubtitleEl) {
+    mapSubtitleEl.textContent = summary
+      ? `FY 2023–24 • ${summary}`
+      : 'FY 2023–24 • All data';
+  }
+  if (mapFiltersEl) {
+    mapFiltersEl.textContent = summary ? `Filters applied: ${summary}` : 'Filters applied: None';
   }
 }
 
@@ -312,6 +461,8 @@ function initializeEventListeners() {
   document.getElementById('exportStatesData')?.addEventListener('click', exportStatesData);
   document.getElementById('exportSectorsData')?.addEventListener('click', exportSectorsData);
   document.getElementById('exportCompaniesData')?.addEventListener('click', exportCompaniesData);
+document.getElementById('exportMapPng')?.addEventListener('click', exportMapAsPNG);
+
   initializeChartDownloads();
 }
 
