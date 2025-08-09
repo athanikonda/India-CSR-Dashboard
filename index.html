@@ -148,17 +148,7 @@
                 </div>
 
                 <!-- India Map Tab -->
-                \1
-<!-- Map header (title + subtitle + export button) -->
-<div class="chart-header" id="mapHeader">
-  <h3 id="mapTitle" class="m-0">India CSR Spending Map</h3>
-  <button id="exportMapPng" class="chart-download-btn">📥 Download PNG</button>
-</div>
-<p id="mapSubtitle" class="data-description" style="text-align:center;margin-top:8px;">
-  Interactive map showing CSR spending by state (auto-updates with filters)
-</p>
-<!-- Filters applied line for the map -->
-<p id="mapFiltersApplied" class="data-description" style="text-align:center;margin:8px 0 16px 0;"></p>
+                <div id="map" class="tab-content">
                     <!--
                         <div class="data-header">
                         <h2>India CSR Spending Map</h2>
@@ -167,8 +157,14 @@
                     -->
                     
                     <div class="map-section">
-                        <div class="map-container">
-    <div class="map-watermark">Prepared by Ashok Thanikonda</div>
+                        <div class="chart-header" id="mapHeader">
+  <h3 id="mapTitle" class="m-0">India CSR Spending Map</h3>
+  <button id="exportMapPng" class="chart-download-btn">📥 Download PNG</button>
+</div>
+<p id="mapSubtitle" class="data-description" style="text-align:center;margin-top:6px;"></p>
+<p id="mapFiltersApplied" class="data-description" style="text-align:center;margin:6px 0 12px 0;"></p>
+<div class="map-container">
+  <div class="map-watermark">Prepared by Ashok Thanikonda</div>
                             <!-- SVG will be loaded here dynamically -->
                             <div id="indiaMap"></div>
                             
