@@ -77,24 +77,21 @@ function registerChartPlugins() {
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
-  registerChartPlugins && registerChartPlugins();
+  if (typeof registerChartPlugins === 'function') registerChartPlugins();
   await loadFullDataset();
-  initializeTabs && initializeTabs();
-  initializeFilters && initializeFilters();
-  initializeEventListeners && initializeEventListeners();
+  if (typeof initializeTabs === 'function') initializeTabs();
+  if (typeof initializeFilters === 'function') initializeFilters();
+  if (typeof initializeEventListeners === 'function') initializeEventListeners();
 
-  // Compute initial selected states safely
   const stateSel = document.getElementById('stateFilter');
   const selValues = Array.from(stateSel?.selectedOptions || []).map(o => o.value);
   const showAllStates = selValues.includes('__ALL__');
-  const selectedStates = showAllStates
-    ? [] // treat __ALL__ as no specific selection => top-10 fallback will kick in
-    : selValues.filter(v => v !== '__ALL__');
+  const selectedStates = showAllStates ? [] : selValues.filter(v => v !== '__ALL__');
 
-  await loadIndiaMap(); // ensure SVG is in the DOM before labeling
-  highlightMapStates && highlightMapStates(selectedStates);
-  labelSelectedStatesWithValues && labelSelectedStatesWithValues(selectedStates, filteredData);
-  setMapSubtitleAndFilters && setMapSubtitleAndFilters();
+  await loadIndiaMap(); // ensure SVG is loaded before labeling
+  if (typeof highlightMapStates === 'function') highlightMapStates(selectedStates);
+  if (typeof labelSelectedStatesWithValues === 'function') labelSelectedStatesWithValues(selectedStates, filteredData);
+  if (typeof setMapSubtitleAndFilters === 'function') setMapSubtitleAndFilters();
 });
   await loadIndiaMap(); // Load the SVG map
   setMapSubtitleAndFilters();
@@ -192,7 +189,7 @@ async function loadFullDataset() {
   }
 }
 
-async function loadIndiaMap() {
+async async function loadIndiaMap() {
   try {
     const response = await fetch('/india-states.svg');
     const svgText = await response.text();
