@@ -91,7 +91,6 @@ function registerChartPlugins() {
     Chart.register(customWatermark);
   }
 }
-});
 // UPDATED: State name canonicalization with SVG spellings
 function canonicalStateName(name) {
   if (!name || !name.trim()) return 'Unknown';
