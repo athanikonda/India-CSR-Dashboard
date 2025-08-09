@@ -857,7 +857,7 @@ function labelSelectedStatesWithValues(selectedStates, filteredData) {
       svg.appendChild(text);
     }
   });
-}
+
 
 console.log("Enhanced dashboard script loaded successfully");
 
