@@ -14,7 +14,6 @@ console.log("Initializing enhanced dashboard...");
 const csvUrl = '/api/fetch-sheet';
 
 let rawData = [];
-const normKey = s => (s || '').toLowerCase().replace(/[^a-z]/g,'');
 let filteredData = [];
 let currentPage = 1;
 const rowsPerPage = 50;
@@ -333,6 +332,10 @@ function downloadChart(chartId) {
   let chartInstance = null;
   let fileName = 'chart.png';
   switch(chartId) {
+    case 'map':
+      downloadMap();
+      return;
+
     case 'overviewStates':
       chartInstance = window.overviewStatesChartInstance;
       fileName = 'top_15_states.png';
@@ -385,6 +388,7 @@ function applyFilters() {
   highlightMapStates(selectedStates);
   // Update map value labels
   labelSelectedStatesWithValues(selectedStates, filteredData);
+  updateMapHeader();
 }
 
 function resetFilters() {
@@ -405,6 +409,7 @@ function resetFilters() {
   highlightMapStates([]);
   // Clear map labels
   labelSelectedStatesWithValues([], []);
+  updateMapHeader();
 }
 
 function updateFilterResults() {
@@ -451,6 +456,7 @@ function updateDashboard() {
   updateSectorsTable();
   updateCompaniesTable();
   updateCharts();
+  updateMapHeader();
 }
 
 function updateElement(id, content) {
@@ -790,10 +796,8 @@ const stateCoordinates = {
 function labelSelectedStatesWithValues(selectedStates, filteredData) {
   const svgRoot = document.querySelector('#indiaMap svg');
   if (!svgRoot) return;
-  // Remove existing labels
   svgRoot.querySelectorAll('.map-label').forEach(e => e.remove());
 
-  // Totals keyed by normalized state name
   const totals = {};
   filteredData.forEach(row => {
     const s = canonicalStateName(row["CSR State"]);
@@ -834,35 +838,12 @@ function labelSelectedStatesWithValues(selectedStates, filteredData) {
     svgRoot.appendChild(text);
   });
 }
-;
-  filteredData.forEach(row => {
-    const state = canonicalStateName(row["CSR State"]);
-    const amt = parseFloat(row["Project Amount Spent (In INR Cr.)"] || 0);
-    stateTotals[state] = (stateTotals[state] || 0) + amt;
-  });
-  selectedStates.forEach(state => {
-    const coords = stateCoordinates[state];
-    const val = stateTotals[state]?.toFixed(2);
-    if (coords && val) {
-      const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-      text.setAttribute("x", coords[0]);
-      text.setAttribute("y", coords[1]);
-      text.setAttribute("class", "map-label");
-      text.setAttribute("text-anchor", "middle");
-      text.setAttribute("font-size", "14");
-      text.setAttribute("fill", "#333");
-      text.setAttribute("stroke", "white");
-      text.setAttribute("stroke-width", "0.5");
-      text.textContent = `₹${val} Cr`;
-      svg.appendChild(text);
-    }
-  });
-
-
+}
 console.log("Enhanced dashboard script loaded successfully");
 
 
-// Compute centroids from actual state paths in SVG
+// ===== Map label center computation & offsets =====
+const normKey = s => (s || '').toLowerCase().replace(/[^a-z]/g,'');
 let stateCenters = {};
 const STATE_LABEL_OFFSETS = {
   "Goa": {dx: 8, dy: 6},
@@ -877,6 +858,7 @@ const STATE_LABEL_OFFSETS = {
   "Andaman and Nicobar": {dx: 12, dy: 10},
   "Lakshadweep": {dx: 12, dy: 10}
 };
+
 function computeStateCenters() {
   stateCenters = {};
   const svg = document.querySelector('#indiaMap svg');
@@ -894,4 +876,120 @@ function computeStateCenters() {
     stateCenters[normKey(id)] = { x: cx, y: cy };
   });
 }
+function updateMapHeader(){
+  const subtitleEl = document.getElementById('mapSubtitle');
+  const filtersEl = document.getElementById('mapFilters');
+  if (subtitleEl){
+    subtitleEl.textContent = 'India CSR Spending Dashboard | FY 2023-24';
+  }
+  if (filtersEl){
+    const summary = getSelectedFiltersSummary();
+    if (summary) {
+      filtersEl.textContent = summary;
+      filtersEl.style.display = 'block';
+    } else {
+      filtersEl.textContent = '';
+      filtersEl.style.display = 'none';
+    }
+  }
+}
 
+
+function addMapWatermark(){
+  const svg = document.querySelector('#indiaMap svg');
+  if (!svg) return;
+  const existing = svg.querySelector('.map-watermark');
+  if (existing) existing.remove();
+  const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+  text.setAttribute('x', '835');
+  text.setAttribute('y', '940');
+  text.setAttribute('text-anchor', 'end');
+  text.setAttribute('class', 'map-watermark');
+  text.setAttribute('fill', '#000');
+  text.setAttribute('opacity', '0.1');
+  text.setAttribute('font-size', '12');
+  text.textContent = 'Prepared by Ashok Thanikonda';
+  svg.appendChild(text);
+}
+
+
+function downloadMap(){
+  const svgElement = document.querySelector('#indiaMap svg');
+  if (!svgElement) return;
+  const cloned = svgElement.cloneNode(true);
+
+  let width = 1000, height = 1000;
+  if (cloned.viewBox && cloned.viewBox.baseVal) {
+    width = cloned.viewBox.baseVal.width;
+    height = cloned.viewBox.baseVal.height;
+  } else {
+    width = parseFloat(cloned.getAttribute('width')) || width;
+    height = parseFloat(cloned.getAttribute('height')) || height;
+  }
+
+  const titleText = document.getElementById('mapTitle')?.textContent || 'CSR Spending Map';
+  const subText = document.getElementById('mapSubtitle')?.textContent || '';
+  const filtText = document.getElementById('mapFilters')?.textContent || '';
+
+  const title = document.createElementNS('http://www.w3.org/2000/svg','text');
+  title.setAttribute('x', width/2);
+  title.setAttribute('y', 34);
+  title.setAttribute('text-anchor','middle');
+  title.setAttribute('font-size','20');
+  title.setAttribute('font-weight','bold');
+  title.setAttribute('fill','#0f172a');
+  title.textContent = titleText;
+  cloned.insertBefore(title, cloned.firstChild);
+
+  if (subText) {
+    const sub = document.createElementNS('http://www.w3.org/2000/svg','text');
+    sub.setAttribute('x', width/2);
+    sub.setAttribute('y', 54);
+    sub.setAttribute('text-anchor','middle');
+    sub.setAttribute('font-size','12');
+    sub.setAttribute('fill','#334155');
+    sub.textContent = subText;
+    cloned.insertBefore(sub, cloned.firstChild);
+  }
+
+  if (filtText) {
+    const filt = document.createElementNS('http://www.w3.org/2000/svg','text');
+    filt.setAttribute('x', width/2);
+    filt.setAttribute('y', 70);
+    filt.setAttribute('text-anchor','middle');
+    filt.setAttribute('font-size','11');
+    filt.setAttribute('fill','#475569');
+    filt.textContent = filtText;
+    cloned.insertBefore(filt, cloned.firstChild);
+  }
+
+  const serializer = new XMLSerializer();
+  let svgString = serializer.serializeToString(cloned);
+  if (!/^<svg[^>]*xmlns="http:\/\/www\.w3\.org\/2000\/svg"/.test(svgString)) {
+    svgString = svgString.replace(/^<svg/, '<svg xmlns="http://www.w3.org/2000/svg"');
+  }
+  if (!/^<svg[^>]*xmlns:xlink="http:\/\/www\.w3\.org\/1999\/xlink"/.test(svgString)) {
+    svgString = svgString.replace(/^<svg/, '<svg xmlns:xlink="http://www.w3.org/1999/xlink"');
+  }
+
+  const svgUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgString);
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+
+  const img = new Image();
+  img.onload = function() {
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0,0,width,height);
+    ctx.drawImage(img, 0, 0, width, height);
+    const png = canvas.toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = png;
+    a.download = 'csr_spending_map.png';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+  img.src = svgUrl;
+}
