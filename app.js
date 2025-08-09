@@ -327,6 +327,54 @@ function populateMultiSelect(selectId, items) {
   });
 }
 
+
+function exportMapAsPNG() {
+  const svg = document.querySelector('#indiaMap svg');
+  if (!svg) return;
+
+  const clone = svg.cloneNode(true);
+  clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  clone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+  const vb = clone.viewBox && clone.viewBox.baseVal ? clone.viewBox.baseVal : null;
+  const width = vb && vb.width ? vb.width : (svg.clientWidth || 1000);
+  const height = vb && vb.height ? vb.height : (svg.clientHeight || 1000);
+  clone.setAttribute('width', width);
+  clone.setAttribute('height', height);
+
+  const serializer = new XMLSerializer();
+  const svgString = serializer.serializeToString(clone);
+  const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+  const url = URL.createObjectURL(svgBlob);
+
+  const img = new Image();
+  img.onload = () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, width, height);
+
+    const wm = document.querySelector('.map-watermark');
+    if (wm) {
+      ctx.globalAlpha = 0.15;
+      ctx.font = '12px ' + getComputedStyle(document.documentElement).getPropertyValue('--font-family-base').trim();
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'bottom';
+      ctx.fillStyle = '#000';
+      ctx.fillText(wm.textContent || '', width - 12, height - 12);
+      ctx.globalAlpha = 1;
+    }
+
+    const link = document.createElement('a');
+    link.download = 'india_csr_map.png';
+    link.href = canvas.toDataURL('image/png', 1.0);
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+  img.onerror = () => URL.revokeObjectURL(url);
+  img.src = url;
+}
+
 function initializeEventListeners() {
   document.getElementById('stateFilter')?.addEventListener('change', applyFilters);
   document.getElementById('sectorFilter')?.addEventListener('change', applyFilters);
