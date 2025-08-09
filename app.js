@@ -91,11 +91,7 @@ function registerChartPlugins() {
     Chart.register(customWatermark);
   }
 }
-
-await loadIndiaMap(); // Load the SVG map
-  setMapSubtitleAndFilters();
 });
-
 // UPDATED: State name canonicalization with SVG spellings
 function canonicalStateName(name) {
   if (!name || !name.trim()) return 'Unknown';
@@ -188,7 +184,7 @@ async function loadFullDataset() {
   }
 }
 
-async async function loadIndiaMap() {
+async function loadIndiaMap() {
   try {
     const response = await fetch('/india-states.svg');
     const svgText = await response.text();
