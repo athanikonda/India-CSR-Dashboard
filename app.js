@@ -178,7 +178,7 @@ async function loadFullDataset() {
   }
 }
 
-async async function loadIndiaMap() {
+async function loadIndiaMap() {
   try {
     const response = await fetch('/india-states.svg');
     const svgText = await response.text();
