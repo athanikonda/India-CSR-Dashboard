@@ -1023,4 +1023,3 @@ function downloadMap(scale = 4) {
   };
   img.src = svgUrl;
 }
-}
