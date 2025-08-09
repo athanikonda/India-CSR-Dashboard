@@ -53,15 +53,6 @@ function registerChartPlugins() {
   }
 }
 
-// Resolve CSS variable to a concrete font stack for SVG attributes
-function getBaseFont() {
-  const v = getComputedStyle(document.documentElement)
-    .getPropertyValue('--font-family-base')
-    .trim();
-  return v || '"FKGroteskNeue","Geist","Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif';
-}
-
-
 document.addEventListener("DOMContentLoaded", async () => {
   registerChartPlugins();
   await loadFullDataset();
@@ -815,13 +806,6 @@ function labelSelectedStatesWithValues(selectedStates, filteredData) {
     totals[k] = (totals[k] || 0) + v;
   });
 
-  // Ensure centers exist (in case of late SVG load)
-  if (!stateCenters || Object.keys(stateCenters).length === 0) {
-    computeStateCenters();
-  }
-
-  const baseFont = getBaseFont();
-
   selectedStates.forEach(state => {
     const k = normKey(state);
     const center = stateCenters[state] || stateCenters[k];
@@ -833,23 +817,18 @@ function labelSelectedStatesWithValues(selectedStates, filteredData) {
     text.setAttribute("x", center.x);
     text.setAttribute("y", center.y);
     text.setAttribute("text-anchor", "middle");
-    // white outline for legibility (works for both black and white fills)
-    text.setAttribute("style", "paint-order: stroke fill; stroke: rgba(255,255,255,.55); stroke-width: .9px;");
+    text.setAttribute("font-size", "12");
+    text.setAttribute("fill", "#f8fafc");
+    text.setAttribute("stroke", "#0f172a");
+    text.setAttribute("stroke-width", "0.5");
 
     const nameT = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
-    nameT.setAttribute("font-family", baseFont);
-    nameT.setAttribute("font-size", "11px");
-    nameT.setAttribute("font-weight", "600");
-    nameT.setAttribute("fill", "#000"); // black state name
     nameT.setAttribute("x", center.x);
     nameT.setAttribute("dy", "0");
+    nameT.setAttribute("font-weight", "bold");
     nameT.textContent = state;
 
     const valueT = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
-    valueT.setAttribute("font-family", baseFont);
-    valueT.setAttribute("font-size", "11px");
-    valueT.setAttribute("font-weight", "600");
-    valueT.setAttribute("fill", "#fff"); // white value
     valueT.setAttribute("x", center.x);
     valueT.setAttribute("dy", "1.2em");
     valueT.textContent = `₹${val.toFixed(2)} Cr`;
@@ -858,6 +837,8 @@ function labelSelectedStatesWithValues(selectedStates, filteredData) {
     text.appendChild(valueT);
     svgRoot.appendChild(text);
   });
+  // ensure watermark sits above labels
+  addMapWatermark();
 }
 
 console.log("Enhanced dashboard script loaded successfully");
@@ -884,40 +865,19 @@ function computeStateCenters() {
   stateCenters = {};
   const svg = document.querySelector('#indiaMap svg');
   if (!svg) return;
-
-  // Prefer explicit label_points embedded in the SVG
-  const lp = svg.querySelector('#label_points');
-  if (lp) {
-    const circles = lp.querySelectorAll('circle[id][cx][cy]');
-    circles.forEach(c => {
-      const sid = c.getAttribute('id');
-      const cx = parseFloat(c.getAttribute('cx'));
-      const cy = parseFloat(c.getAttribute('cy'));
-      if (!isNaN(cx) && !isNaN(cy) && sid) {
-        stateCenters[sid] = { x: cx, y: cy };
-        stateCenters[normKey(sid)] = { x: cx, y: cy };
-      }
-    });
-  }
-
-  // Fallback: compute from geometry with optional offsets
-const nodes = svg.querySelectorAll('path[id], g[id]');
-nodes.forEach(el => {
-  const sid = el.getAttribute('id');
-  if (!sid) return;
-  const bb = el.getBBox();
-  let cx = bb.x + bb.width / 2;
-  let cy = bb.y + bb.height / 2;
-  const off = STATE_LABEL_OFFSETS[sid];
-  if (off) { cx += (off.dx || 0); cy += (off.dy || 0); }
-  // do not override label_points if already set
-  if (!stateCenters[sid]) {
-    stateCenters[sid] = { x: cx, y: cy };
-    stateCenters[normKey(sid)] = { x: cx, y: cy };
-  }
-});
-} // end of computeStateCenters
-
+  const nodes = svg.querySelectorAll('path[id], g[id]');
+  nodes.forEach(el => {
+    const id = el.getAttribute('id');
+    if (!id) return;
+    const bb = el.getBBox();
+    let cx = bb.x + bb.width / 2;
+    let cy = bb.y + bb.height / 2;
+    const off = STATE_LABEL_OFFSETS[id];
+    if (off) { cx += (off.dx || 0); cy += (off.dy || 0); }
+    stateCenters[id] = { x: cx, y: cy };
+    stateCenters[normKey(id)] = { x: cx, y: cy };
+  });
+}
 function updateMapHeader(){
   const subtitleEl = document.getElementById('mapSubtitle');
   const filtersEl = document.getElementById('mapFilters');
@@ -940,21 +900,35 @@ function updateMapHeader(){
 function addMapWatermark(){
   const svg = document.querySelector('#indiaMap svg');
   if (!svg) return;
+  // remove any existing watermark
   const existing = svg.querySelector('.map-watermark');
   if (existing) existing.remove();
+
+  // place roughly between Andhra Pradesh and Andaman islands
+  const width = (svg.viewBox && svg.viewBox.baseVal) ? svg.viewBox.baseVal.width : (parseFloat(svg.getAttribute('width')) || 1000);
+  const height = (svg.viewBox && svg.viewBox.baseVal) ? svg.viewBox.baseVal.height : (parseFloat(svg.getAttribute('height')) || 1000);
+
+  // tuned position for this map
+  const x = Math.min(width - 200, 740);
+  const y = Math.min(height - 120, 820);
+
   const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-  text.setAttribute('x', '835');
-  text.setAttribute('y', '940');
-  text.setAttribute('text-anchor', 'end');
+  text.setAttribute('x', String(x));
+  text.setAttribute('y', String(y));
+  text.setAttribute('text-anchor', 'middle');
   text.setAttribute('class', 'map-watermark');
+
+  // typography
+  const baseFont = (typeof getBaseFont === 'function') ? getBaseFont() : '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  text.setAttribute('font-family', baseFont);
+  text.setAttribute('font-size', '13');
+  text.setAttribute('font-weight', '600');
   text.setAttribute('fill', '#000');
-  text.setAttribute('opacity', '0.1');
-  text.setAttribute('font-size', '12');
+  text.setAttribute('opacity', '0.25'); // slightly stronger so it’s visible
+
   text.textContent = 'Prepared by Ashok Thanikonda';
   svg.appendChild(text);
 }
-
-
 function downloadMap(){
   const svgElement = document.querySelector('#indiaMap svg');
   if (!svgElement) return;
