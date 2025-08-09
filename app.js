@@ -985,6 +985,48 @@ function downloadMap(scale = 4) {
     width = parseFloat(cloned.getAttribute('width')) || width;
     height = parseFloat(cloned.getAttribute('height')) || height;
   }
+  // ---- ADD THESE LINES (place BEFORE the serializer block) ----
+  // Pull current header strings from the DOM
+  const titleText = document.getElementById('mapTitle')?.textContent || 'CSR Spending Map';
+  const subText   = document.getElementById('mapSubtitle')?.textContent || '';
+  const filtText  = document.getElementById('mapFilters')?.textContent || '';
+
+  // Title (top, centered)
+  if (titleText) {
+    const title = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    title.setAttribute('x', String(width / 2));
+    title.setAttribute('y', '28');
+    title.setAttribute('text-anchor', 'middle');
+    title.setAttribute('font-size', '16');
+    title.setAttribute('fill', '#0f172a');
+    title.textContent = titleText;
+    cloned.appendChild(title); // append so it renders above the map
+  }
+
+  // Subtitle
+  if (subText) {
+    const sub = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    sub.setAttribute('x', String(width / 2));
+    sub.setAttribute('y', '48');
+    sub.setAttribute('text-anchor', 'middle');
+    sub.setAttribute('font-size', '12');
+    sub.setAttribute('fill', '#334155');
+    sub.textContent = subText;
+    cloned.appendChild(sub);
+  }
+
+  // Filters line
+  if (filtText) {
+    const filt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    filt.setAttribute('x', String(width / 2));
+    filt.setAttribute('y', '70');
+    filt.setAttribute('text-anchor', 'middle');
+    filt.setAttribute('font-size', '11');
+    filt.setAttribute('fill', '#475569');
+    filt.textContent = filtText;
+    cloned.appendChild(filt);
+  }
+  // ---- END ADDITION ----
 
   // Ensure xmlns attributes for correct serialization
   const serializer = new XMLSerializer();
