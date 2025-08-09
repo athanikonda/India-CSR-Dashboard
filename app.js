@@ -956,7 +956,7 @@ function addMapWatermark() {
   }
 
   // watermark — bottom-right with padding
-  const pad = 10;
+  const pad = 200;
   const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
   text.setAttribute('x', String(w - pad));
   text.setAttribute('y', String(h - pad));
