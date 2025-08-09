@@ -916,8 +916,12 @@ function computeStateCenters() {
       stateCenters[normKey(sid)] = { x: cx, y: cy };
     }
   });
-}    stateCenters[id] = { x: cx, y: cy };
-    stateCenters[normKey(id)] = { x: cx, y: cy };
+}    
+
+if (!stateCenters[sid]) {
+  stateCenters[sid] = { x: cx, y: cy };
+  stateCenters[normKey(sid)] = { x: cx, y: cy };
+}
 
 
 function updateMapHeader(){
