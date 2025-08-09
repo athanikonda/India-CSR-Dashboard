@@ -678,7 +678,7 @@ function updateBarChart(canvasId, instanceVar, data, title, color) {
           align: 'end',
           color: '#000',
           formatter: function(value) {
-            return '₹' + value.toLocaleString('en-IN', { maximumFractionDigits: 2 }) + ' Cr';
+            return  value.toLocaleString('en-IN', { maximumFractionDigits: 2 });
           },
           font: { weight: 'bold' }
         }
