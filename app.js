@@ -83,7 +83,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   initializeFilters();
   initializeEventListeners();
   updateDashboard();
-  loadIndiaMap(); // Load the SVG map
+  await loadIndiaMap(); // Load the SVG map
+  setMapSubtitleAndFilters();
 });
 
 // UPDATED: State name canonicalization with SVG spellings
@@ -185,6 +186,8 @@ async function loadIndiaMap() {
     const mapContainer = document.querySelector('#indiaMap');
     if (mapContainer) {
       mapContainer.innerHTML = svgText;
+      buildStateIndex();
+      ensureSvgLayers();
       const statePaths = mapContainer.querySelectorAll('path, g[id]');
       statePaths.forEach(path => {
         path.addEventListener('mouseenter', handleMapHover);
@@ -837,3 +840,46 @@ function labelSelectedStatesWithValues(selectedStates, filteredData) {
 }
 
 console.log("Enhanced dashboard script loaded successfully");
+
+
+function buildStateIndex() {
+  const svgRoot = document.querySelector('#indiaMap svg');
+  if (!svgRoot) return;
+  const map = {};
+  const els = svgRoot.querySelectorAll('path, g[id]');
+  els.forEach(el => {
+    const raw = el.getAttribute('name') || el.getAttribute('id') || '';
+    if (!raw) return;
+    const norm = raw.toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
+    map[norm] = el;
+  });
+  window.__stateElByName = map;
+}
+
+function findStateElementByName(stateName) {
+  const svgRoot = document.querySelector('#indiaMap svg');
+  if (!svgRoot || !stateName) return null;
+  const norm = stateName.toLowerCase().replace(/\s+/g, ' ').trim();
+  const map = window.__stateElByName || {};
+  if (map[norm]) return map[norm];
+  // Fallback queries
+  return svgRoot.querySelector(`path[name="${stateName}"], g[id="${stateName}"], #${CSS.escape(stateName)}`);
+}
+
+function ensureSvgLayers() {
+  const svgRoot = document.querySelector('#indiaMap svg');
+  if (!svgRoot) return null;
+  let labelsLayer = svgRoot.querySelector('#labelsLayer');
+  if (!labelsLayer) {
+    labelsLayer = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    labelsLayer.setAttribute('id', 'labelsLayer');
+    labelsLayer.setAttribute('pointer-events', 'none');
+    svgRoot.appendChild(labelsLayer);
+  }
+  return labelsLayer;
+}
+
+function getElementCenter(el) {
+  const bbox = el.getBBox();
+  return { x: bbox.x + bbox.width / 2, y: bbox.y + bbox.height / 2 };
+}
