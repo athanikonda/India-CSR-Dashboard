@@ -908,7 +908,7 @@ function computeStateCenters() {
   });
 }    stateCenters[id] = { x: cx, y: cy };
     stateCenters[normKey(id)] = { x: cx, y: cy };
-  });
+
 }
 function updateMapHeader(){
   const subtitleEl = document.getElementById('mapSubtitle');
