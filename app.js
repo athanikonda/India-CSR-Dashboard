@@ -796,6 +796,10 @@ const stateCoordinates = {
 function labelSelectedStatesWithValues(selectedStates, filteredData) {
   const svgRoot = document.querySelector('#indiaMap svg');
   if (!svgRoot) return;
+  // Ensure stateCenters has been computed before attempting to label states
+  if (!stateCenters || Object.keys(stateCenters).length === 0) {
+    computeStateCenters();
+  }
   svgRoot.querySelectorAll('.map-label').forEach(e => e.remove());
 
   const totals = {};
@@ -860,18 +864,50 @@ const STATE_LABEL_OFFSETS = {
 };
 
 function computeStateCenters() {
+  // Reset the cached center map
   stateCenters = {};
   const svg = document.querySelector('#indiaMap svg');
   if (!svg) return;
+
+  /**
+   * The SimpleMaps SVG file used for the India map includes a `label_points` group
+   * containing one `<circle>` element per state or union territory.  Each circle
+   * defines a `cx` and `cy` coordinate that positions a label appropriately
+   * within the map.  Previously, this function attempted to compute the
+   * centre of each state path via `getBBox()`, but that can return incorrect
+   * values or zero width/height when the SVG isn't fully laid out.  To ensure
+   * labels appear in the correct location, we first populate `stateCenters`
+   * using the explicit label points from the SVG.  If a state does not have
+   * a corresponding label point, we fall back to computing the bounding box as
+   * before and apply any optional offsets.
+   */
+  const labelPoints = svg.querySelectorAll('g#label_points circle');
+  labelPoints.forEach(circle => {
+    const id = circle.getAttribute('id');
+    if (!id) return;
+    const cx = parseFloat(circle.getAttribute('cx'));
+    const cy = parseFloat(circle.getAttribute('cy'));
+    if (!Number.isNaN(cx) && !Number.isNaN(cy)) {
+      stateCenters[id] = { x: cx, y: cy };
+      stateCenters[normKey(id)] = { x: cx, y: cy };
+    }
+  });
+
+  // For any states not covered by label_points, compute a bounding box centre
   const nodes = svg.querySelectorAll('path[id], g[id]');
   nodes.forEach(el => {
     const id = el.getAttribute('id');
     if (!id) return;
+    // Skip if we already have a centre for this state
+    if (stateCenters[id] || stateCenters[normKey(id)]) return;
     const bb = el.getBBox();
     let cx = bb.x + bb.width / 2;
     let cy = bb.y + bb.height / 2;
     const off = STATE_LABEL_OFFSETS[id];
-    if (off) { cx += (off.dx || 0); cy += (off.dy || 0); }
+    if (off) {
+      cx += (off.dx || 0);
+      cy += (off.dy || 0);
+    }
     stateCenters[id] = { x: cx, y: cy };
     stateCenters[normKey(id)] = { x: cx, y: cy };
   });
