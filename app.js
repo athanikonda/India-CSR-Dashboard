@@ -937,23 +937,36 @@ function updateMapHeader(){
 }
 
 
-function addMapWatermark(){
+function addMapWatermark() {
   const svg = document.querySelector('#indiaMap svg');
   if (!svg) return;
-  const existing = svg.querySelector('.map-watermark');
-  if (existing) existing.remove();
+
+  // remove any previous watermark
+  svg.querySelectorAll('.map-watermark').forEach(n => n.remove());
+
+  // figure out drawing size from viewBox or width/height
+  let w = 1000, h = 1000;
+  const vb = svg.getAttribute('viewBox');
+  if (vb) {
+    const parts = vb.split(/\s+/).map(Number);
+    if (parts.length === 4) { w = parts[2]; h = parts[3]; }
+  } else {
+    if (svg.hasAttribute('width'))  w = parseFloat(svg.getAttribute('width'));
+    if (svg.hasAttribute('height')) h = parseFloat(svg.getAttribute('height'));
+  }
+
+  // watermark — bottom-right with padding
+  const pad = 10;
   const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-  text.setAttribute('x', '835');
-  text.setAttribute('y', '940');
+  text.setAttribute('x', String(w - pad));
+  text.setAttribute('y', String(h - pad));
   text.setAttribute('text-anchor', 'end');
   text.setAttribute('class', 'map-watermark');
-  text.setAttribute('fill', '#000');
-  text.setAttribute('opacity', '0.1');
-  text.setAttribute('font-size', '12');
+  text.setAttribute('fill', 'rgba(0,0,0,0.3)');
+  text.setAttribute('font-size', '20');
   text.textContent = 'Prepared by Ashok Thanikonda';
   svg.appendChild(text);
 }
-
 
 function downloadMap(){
   const svgElement = document.querySelector('#indiaMap svg');
