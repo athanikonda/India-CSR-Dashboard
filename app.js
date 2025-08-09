@@ -968,11 +968,15 @@ function addMapWatermark() {
   svg.appendChild(text);
 }
 
-function downloadMap(){
+function downloadMap(scale = 4) {
+  // Grab the rendered SVG (includes watermark & labels)
   const svgElement = document.querySelector('#indiaMap svg');
   if (!svgElement) return;
+
+  // Clone so we don’t mutate what’s on screen
   const cloned = svgElement.cloneNode(true);
 
+  // Resolve base width/height from viewBox or width/height
   let width = 1000, height = 1000;
   if (cloned.viewBox && cloned.viewBox.baseVal) {
     width = cloned.viewBox.baseVal.width;
@@ -982,42 +986,7 @@ function downloadMap(){
     height = parseFloat(cloned.getAttribute('height')) || height;
   }
 
-  const titleText = document.getElementById('mapTitle')?.textContent || 'CSR Spending Map';
-  const subText = document.getElementById('mapSubtitle')?.textContent || '';
-  const filtText = document.getElementById('mapFilters')?.textContent || '';
-
-  const title = document.createElementNS('http://www.w3.org/2000/svg','text');
-  title.setAttribute('x', width/2);
-  title.setAttribute('y', 34);
-  title.setAttribute('text-anchor','middle');
-  title.setAttribute('font-size','20');
-  title.setAttribute('font-weight','bold');
-  title.setAttribute('fill','#0f172a');
-  title.textContent = titleText;
-  cloned.insertBefore(title, cloned.firstChild);
-
-  if (subText) {
-    const sub = document.createElementNS('http://www.w3.org/2000/svg','text');
-    sub.setAttribute('x', width/2);
-    sub.setAttribute('y', 54);
-    sub.setAttribute('text-anchor','middle');
-    sub.setAttribute('font-size','12');
-    sub.setAttribute('fill','#334155');
-    sub.textContent = subText;
-    cloned.insertBefore(sub, cloned.firstChild);
-  }
-
-  if (filtText) {
-    const filt = document.createElementNS('http://www.w3.org/2000/svg','text');
-    filt.setAttribute('x', width/2);
-    filt.setAttribute('y', 70);
-    filt.setAttribute('text-anchor','middle');
-    filt.setAttribute('font-size','11');
-    filt.setAttribute('fill','#475569');
-    filt.textContent = filtText;
-    cloned.insertBefore(filt, cloned.firstChild);
-  }
-
+  // Ensure xmlns attributes for correct serialization
   const serializer = new XMLSerializer();
   let svgString = serializer.serializeToString(cloned);
   if (!/^<svg[^>]*xmlns="http:\/\/www\.w3\.org\/2000\/svg"/.test(svgString)) {
@@ -1027,24 +996,31 @@ function downloadMap(){
     svgString = svgString.replace(/^<svg/, '<svg xmlns:xlink="http://www.w3.org/1999/xlink"');
   }
 
+  // Rasterize at higher resolution via canvas
   const svgUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgString);
   const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
+  canvas.width = Math.round(width * scale);
+  canvas.height = Math.round(height * scale);
   const ctx = canvas.getContext('2d');
 
   const img = new Image();
-  img.onload = function() {
+  img.onload = function () {
+    // white background (PNG would be transparent otherwise)
     ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0,0,width,height);
-    ctx.drawImage(img, 0, 0, width, height);
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // draw scaled
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+    // download
     const png = canvas.toDataURL('image/png');
     const a = document.createElement('a');
     a.href = png;
-    a.download = 'csr_spending_map.png';
+    a.download = `csr_spending_map_${scale}x.png`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
   };
   img.src = svgUrl;
+}
 }
