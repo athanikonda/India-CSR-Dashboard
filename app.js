@@ -189,7 +189,7 @@ async function loadFullDataset() {
   }
 }
 
-async async function loadIndiaMap() {
+async function loadIndiaMap() {
   try {
     const response = await fetch('/india-states.svg');
     const svgText = await response.text();
@@ -253,13 +253,14 @@ function handleMapClick(event) {
 
 // State highlighting
 function highlightMapStates(canon) {
-  const svgContainer = document.querySelector('#indiaMap');
-  if (!svgContainer || !canon || canon.length === 0) return;
+  const svgContainer = document.querySelector('#indiaMap svg') || document.querySelector('#indiaMap');
+  if (!svgContainer || !Array.isArray(canon)) return;
   const paths = svgContainer.querySelectorAll('path');
   paths.forEach(p => {
     p.style.fill = '#7FB069';
     p.classList.remove('state-selected');
   });
+  if (canon.length === 0) return;
   if (canon.includes('Unspecified geography')) return;
   if (canon.includes('PAN India')) {
     paths.forEach(p => {
@@ -269,17 +270,16 @@ function highlightMapStates(canon) {
     return;
   }
   canon.forEach(state => {
-    const matches = svgContainer.querySelectorAll(`path[name="${state}"]`);
+    const matches = svgContainer.querySelectorAll(`path[id="${state}"], path[name="${state}"]`);
     matches.forEach(p => {
       p.style.fill = '#1f7a8c';
       p.classList.add('state-selected');
     });
   });
   const counter = document.getElementById('state-count');
-  if (counter) {
-    counter.innerText = `Selected: ${canon.length}`;
-  }
+  if (counter) counter.innerText = `Selected: ${canon.length}`;
 }
+
 
 function initializeTabs() {
   const tabs = document.querySelectorAll(".tab-button");
@@ -491,7 +491,7 @@ function resetFilters() {
   filteredData = [...rawData];
   currentPage = 1;
   updateDashboard();
-  console.debug('applyFilters:', {filtered: filteredData.length, selectedStates});
+  console.debug('applyFilters: reset', {filtered: filteredData.length});
   updateFilterResults();
   highlightMapStates([]);
   // Clear map labels
