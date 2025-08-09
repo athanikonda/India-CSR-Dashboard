@@ -849,10 +849,10 @@ function labelSelectedStatesWithValues(selectedStates, filteredData) {
     valueT.setAttribute("font-family", baseFont);
     valueT.setAttribute("font-size", "11px");
     valueT.setAttribute("font-weight", "600");
-    valueT.setAttribute("fill", "#fff"); // white value
+    valueT.setAttribute("fill", "#000"); // black value
     valueT.setAttribute("x", center.x);
     valueT.setAttribute("dy", "1.2em");
-    valueT.textContent = `₹${val.toFixed(2)} Cr`;
+    valueT.textContent = `₹${val.toFixed(1)} Cr`;
 
     text.appendChild(nameT);
     text.appendChild(valueT);
