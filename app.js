@@ -801,13 +801,15 @@ function labelSelectedStatesWithValues(selectedStates, filteredData) {
   const totals = {};
   filteredData.forEach(row => {
     const s = canonicalStateName(row["CSR State"]);
+    const k = normKey(s);
     const v = parseFloat(row["Project Amount Spent (In INR Cr.)"] || 0) || 0;
-    totals[s] = (totals[s] || 0) + v;
+    totals[k] = (totals[k] || 0) + v;
   });
 
   selectedStates.forEach(state => {
-    const center = stateCenters[state];
-    const val = totals[state];
+    const k = normKey(state);
+    const center = stateCenters[state] || stateCenters[k];
+    const val = totals[k];
     if (!center || val == null) return;
 
     const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
@@ -836,12 +838,14 @@ function labelSelectedStatesWithValues(selectedStates, filteredData) {
     svgRoot.appendChild(text);
   });
 }
-
+  });
+}
 
 console.log("Enhanced dashboard script loaded successfully");
 
 
 // ===== Map label center computation & offsets =====
+const normKey = s => (s || '').toLowerCase().replace(/[^a-z]/g,'');
 let stateCenters = {};
 const STATE_LABEL_OFFSETS = {
   "Goa": {dx: 8, dy: 6},
@@ -871,11 +875,9 @@ function computeStateCenters() {
     const off = STATE_LABEL_OFFSETS[id];
     if (off) { cx += (off.dx || 0); cy += (off.dy || 0); }
     stateCenters[id] = { x: cx, y: cy };
+    stateCenters[normKey(id)] = { x: cx, y: cy };
   });
 }
-
-
-
 function updateMapHeader(){
   const subtitleEl = document.getElementById('mapSubtitle');
   const filtersEl = document.getElementById('mapFilters');
@@ -901,8 +903,8 @@ function addMapWatermark(){
   const existing = svg.querySelector('.map-watermark');
   if (existing) existing.remove();
   const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-  text.setAttribute('x', '95%');
-  text.setAttribute('y', '98%');
+  text.setAttribute('x', '835');
+  text.setAttribute('y', '940');
   text.setAttribute('text-anchor', 'end');
   text.setAttribute('class', 'map-watermark');
   text.setAttribute('fill', '#000');
