@@ -53,6 +53,15 @@ function registerChartPlugins() {
   }
 }
 
+// Resolve CSS variable to a concrete font stack for SVG attributes
+function getBaseFont() {
+  const v = getComputedStyle(document.documentElement)
+    .getPropertyValue('--font-family-base')
+    .trim();
+  return v || '"FKGroteskNeue","Geist","Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif';
+}
+
+
 document.addEventListener("DOMContentLoaded", async () => {
   registerChartPlugins();
   await loadFullDataset();
@@ -796,10 +805,6 @@ const stateCoordinates = {
 function labelSelectedStatesWithValues(selectedStates, filteredData) {
   const svgRoot = document.querySelector('#indiaMap svg');
   if (!svgRoot) return;
-  // Ensure stateCenters has been computed before attempting to label states
-  if (!stateCenters || Object.keys(stateCenters).length === 0) {
-    computeStateCenters();
-  }
   svgRoot.querySelectorAll('.map-label').forEach(e => e.remove());
 
   const totals = {};
@@ -810,6 +815,7 @@ function labelSelectedStatesWithValues(selectedStates, filteredData) {
     totals[k] = (totals[k] || 0) + v;
   });
 
+  const baseFont = getBaseFont();
   selectedStates.forEach(state => {
     const k = normKey(state);
     const center = stateCenters[state] || stateCenters[k];
@@ -821,25 +827,19 @@ function labelSelectedStatesWithValues(selectedStates, filteredData) {
     text.setAttribute("x", center.x);
     text.setAttribute("y", center.y);
     text.setAttribute("text-anchor", "middle");
-    text.setAttribute("font-size", "12");
-    text.setAttribute("fill", "#f8fafc");
-    text.setAttribute("stroke", "#0f172a");
-    text.setAttribute("stroke-width", "0.5");
+    text.setAttribute("style", "paint-order: stroke fill; stroke: rgba(0,0,0,.45); stroke-width: .8px;");
 
     const nameT = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
-    nameT.setAttribute("font-family", "var(--font-family-base)");
-    nameT.setAttribute("font-size", "10px");
-    nameT.setAttribute("fill", "#000");
     nameT.setAttribute("x", center.x);
     nameT.setAttribute("dy", "0");
-    nameT.setAttribute("font-weight", "bold");
+    nameT.setAttribute("font-weight", "600");
     nameT.textContent = state;
 
     const valueT = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
-    valueT.setAttribute("font-family", "var(--font-family-base)");
-    valueT.setAttribute("font-size", "10px");
-    valueT.setAttribute("fill", "#000");
-    valueT.setAttribute("font-weight", "bold");
+    valueT.setAttribute("font-family", baseFont);
+    valueT.setAttribute("font-size", "11px");
+    valueT.setAttribute("font-weight", "600");
+    valueT.setAttribute("fill", "#fff");
     valueT.setAttribute("x", center.x);
     valueT.setAttribute("dy", "1.2em");
     valueT.textContent = `₹${val.toFixed(2)} Cr`;
@@ -871,51 +871,42 @@ const STATE_LABEL_OFFSETS = {
 };
 
 function computeStateCenters() {
-  // Reset the cached center map
   stateCenters = {};
   const svg = document.querySelector('#indiaMap svg');
   if (!svg) return;
 
-  /**
-   * The SimpleMaps SVG file used for the India map includes a `label_points` group
-   * containing one `<circle>` element per state or union territory.  Each circle
-   * defines a `cx` and `cy` coordinate that positions a label appropriately
-   * within the map.  Previously, this function attempted to compute the
-   * centre of each state path via `getBBox()`, but that can return incorrect
-   * values or zero width/height when the SVG isn't fully laid out.  To ensure
-   * labels appear in the correct location, we first populate `stateCenters`
-   * using the explicit label points from the SVG.  If a state does not have
-   * a corresponding label point, we fall back to computing the bounding box as
-   * before and apply any optional offsets.
-   */
-  const labelPoints = svg.querySelectorAll('g#label_points circle');
-  labelPoints.forEach(circle => {
-    const id = circle.getAttribute('id');
-    if (!id) return;
-    const cx = parseFloat(circle.getAttribute('cx'));
-    const cy = parseFloat(circle.getAttribute('cy'));
-    if (!Number.isNaN(cx) && !Number.isNaN(cy)) {
-      stateCenters[id] = { x: cx, y: cy };
-      stateCenters[normKey(id)] = { x: cx, y: cy };
-    }
-  });
+  // Prefer explicit label points embedded in the SVG
+  const lp = svg.querySelector('#label_points');
+  if (lp) {
+    const circles = lp.querySelectorAll('circle[id][cx][cy]');
+    circles.forEach(c => {
+      const id = c.getAttribute('id');
+      const cx = parseFloat(c.getAttribute('cx'));
+      const cy = parseFloat(c.getAttribute('cy'));
+      if (!isNaN(cx) && !isNaN(cy) && id) {
+        stateCenters[id] = { x: cx, y: cy };
+        stateCenters[normKey(id)] = { x: cx, y: cy };
+      }
+    });
+  }
 
-  // For any states not covered by label_points, compute a bounding box centre
+  // Fallback: compute from geometry with optional offsets
   const nodes = svg.querySelectorAll('path[id], g[id]');
   nodes.forEach(el => {
     const id = el.getAttribute('id');
     if (!id) return;
-    // Skip if we already have a centre for this state
-    if (stateCenters[id] || stateCenters[normKey(id)]) return;
     const bb = el.getBBox();
     let cx = bb.x + bb.width / 2;
     let cy = bb.y + bb.height / 2;
     const off = STATE_LABEL_OFFSETS[id];
-    if (off) {
-      cx += (off.dx || 0);
-      cy += (off.dy || 0);
+    if (off) { cx += (off.dx || 0); cy += (off.dy || 0); }
+    // do not override label_points if already set
+    if (!stateCenters[id]) {
+      stateCenters[id] = { x: cx, y: cy };
+      stateCenters[normKey(id)] = { x: cx, y: cy };
     }
-    stateCenters[id] = { x: cx, y: cy };
+  });
+}    stateCenters[id] = { x: cx, y: cy };
     stateCenters[normKey(id)] = { x: cx, y: cy };
   });
 }
